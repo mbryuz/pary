@@ -108,6 +108,28 @@ input:focus,select:focus{outline:2px solid var(--accent);outline-offset:-1px}
 .srow .big{grid-row:1/3;grid-column:2;text-align:right;font-weight:800;font-size:20px;font-variant-numeric:tabular-nums}
 .srow .big small{display:block;font-size:11px;font-weight:600;color:var(--muted)}
 .srow.done{opacity:.5}
+.srow[data-subj]{cursor:pointer}
+.srow[data-subj]:hover .sn{color:var(--accent)}
+.srow .arr{color:var(--muted);font-size:12px;font-weight:600}
+.slist{grid-column:1/-1;margin-top:6px;display:grid;gap:4px;cursor:default}
+.sitem{display:grid;grid-template-columns:150px 1fr;gap:10px;font-size:13px;padding:6px 10px;border-radius:8px;background:var(--bg);border-left:3px solid var(--k)}
+.sitem .sdate{font-weight:700}
+.sitem .stype{font-weight:600;color:var(--k)}
+.sitem.ctrl{background:var(--bad-bg)}
+.ycal summary{align-items:flex-start}
+.ynow{font-weight:800;font-size:16px}
+.ylist{display:grid;gap:6px;margin-top:10px}
+.yp{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border-radius:10px;border:1px solid var(--line)}
+.yp .yi{font-size:18px;line-height:1.2}
+.yp.cur{border-color:var(--accent);background:var(--accent-soft)}
+.yp.holiday b{color:var(--ok)}
+.yp.session b{color:var(--exam)}
+.pband{margin:26px 0 4px;padding:10px 14px;border-radius:12px;font-size:14px;background:var(--accent-soft);color:var(--accent)}
+.pband.holiday{background:color-mix(in srgb,var(--ok) 14%,transparent);color:var(--ok)}
+.pband.session{background:var(--bad-bg);color:var(--bad)}
+.pband + .week{margin-top:10px}
+.day.hol .c{color:var(--ok)}
+@media (max-width:560px){ .sitem{grid-template-columns:1fr;gap:0} }
 .chip{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:6px;margin:2px 4px 0 0;background:var(--bad-bg);color:var(--bad)}
 .chip.kr{background:var(--warn-bg);color:var(--warn)}
 
@@ -235,11 +257,25 @@ const ls = {
   set(k,v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
 };
 
+// Учебный график СПбГУ на 2026/27 (магистратура; приказ от 30.04.2026 № 6043/1).
+// Осень начинается 1 сентября — как в расписании групп.
+const CALENDAR = [
+  { from: '2026-09-01', to: '2026-12-22', kind: 'study',   icon: '📚', title: 'Учебные занятия', note: 'зачёты — по ходу семестра' },
+  { from: '2026-12-23', to: '2026-12-29', kind: 'study',   icon: '📝', title: 'Зачётная неделя', note: 'последние занятия, зачёты и экзамены' },
+  { from: '2026-12-30', to: '2027-01-08', kind: 'holiday', icon: '🎄', title: 'Новогодние каникулы', note: 'возможны зачёты и экзамены' },
+  { from: '2027-01-09', to: '2027-01-29', kind: 'session', icon: '🎓', title: 'Зимняя сессия', note: 'зачёты, экзамены, пересдачи' },
+  { from: '2027-01-30', to: '2027-02-10', kind: 'holiday', icon: '❄️', title: 'Зимние каникулы', note: '' },
+  { from: '2027-02-11', to: '2027-05-30', kind: 'study',   icon: '📚', title: 'Учебные занятия', note: 'весенний семестр' },
+  { from: '2027-05-31', to: '2027-06-14', kind: 'study',   icon: '📝', title: 'Зачётная неделя', note: 'последние занятия, зачёты и экзамены' },
+  { from: '2027-06-15', to: '2027-07-26', kind: 'session', icon: '🎓', title: 'Летняя сессия', note: 'зачёты, экзамены, пересдачи' },
+  { from: '2027-07-27', to: '2027-08-31', kind: 'holiday', icon: '☀️', title: 'Летние каникулы', note: '' },
+];
+const periodOf = d => CALENDAR.find(p => d >= p.from && d <= p.to);
 function semester(){
-  const t = todayStr(), y = +t.slice(0,4), m = +t.slice(5,7);
-  if (m >= 8) return { from: `${y}-09-01`, to: `${y+1}-01-31` };
-  if (m === 1) return { from: `${y-1}-09-01`, to: `${y}-01-31` };
-  return { from: `${y}-02-01`, to: `${y}-07-31` };
+  const t = todayStr(), y = +t.slice(0,4), md = t.slice(5);
+  if (md >= '08-01') return { from: `${y}-09-01`, to: `${y+1}-02-10` };
+  if (md <= '02-10') return { from: `${y-1}-09-01`, to: `${y}-02-10` };
+  return { from: `${y}-02-11`, to: `${y}-07-26` };
 }
 const SEM = semester();
 
@@ -454,6 +490,8 @@ function ctrlKind(type){
   return null;
 }
 const isRetake = t => /пересдач/i.test(t||'');
+const isExamHw = h => h.kind === 'exam';
+const isKrHw = h => h.kind === 'kr' || (!h.kind && h.test);
 const isLesson = t => /лекц|семинар|практ|сам\. работа|лаборатор/i.test(t||'');
 
 // ================= Состояние =================
@@ -745,7 +783,7 @@ function showChoices(){
 // ================= Главный экран =================
 function showMain(){
   if (view !== 'main' || !$('list')) buildMain();
-  renderBanner(); renderHw(); renderNext(); renderStats(); renderSummary(); renderList();
+  renderBanner(); renderHw(); renderNext(); renderStats(); renderYear(); renderSummary(); renderList();
 }
 function buildMain(){
   view = 'main';
@@ -774,11 +812,12 @@ function buildMain(){
       <input name="text" placeholder="Что сделать (доклад, задачи, прочитать…)" required>
       <select name="subject" id="subjSel"></select>
       <input type="date" name="due" required>
-      <label><input type="checkbox" name="test" style="width:auto"> тест/КР</label>
+      <select name="kind" title="Тип"><option value="">обычное ДЗ</option><option value="kr">тест / КР</option><option value="exam">зачёт / экзамен</option></select>
       <button class="primary" type="submit">Добавить</button>
     </form>
   </section>
   <div class="stats" id="stats"></div>
+  <div id="year"></div>
   <details class="panel sum" id="sumBox">
     <summary><h2>Сводка по предметам</h2><span class="cnt">сколько учебных дней осталось</span></summary>
     <div id="sumList"></div>
@@ -786,7 +825,7 @@ function buildMain(){
   <div class="bar" id="bar">
     <button data-f="upcoming">Предстоящие</button>
     <button data-f="week">Эта неделя</button>
-    <button data-f="zach">Зачёты</button>
+    <button data-f="zach">Зачёты и экзамены</button>
     <button data-f="kr">КР и тесты</button>
     <button data-f="all">Весь семестр</button>
   </div>
@@ -820,7 +859,7 @@ function buildMain(){
   $('addForm').onsubmit = async e => {
     e.preventDefault();
     const f = e.target, id = 'h' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
-    await backend.update({ ['hw.' + id]: { due: f.due.value, subject: f.subject.value || 'Без предмета', text: f.text.value.trim(), test: f.test.checked, done: false, created: Date.now() } });
+    await backend.update({ ['hw.' + id]: { due: f.due.value, subject: f.subject.value || 'Без предмета', text: f.text.value.trim(), kind: f.kind.value, test: f.kind.value === 'kr', done: false, created: Date.now() } });
     f.reset();
   };
 }
@@ -846,7 +885,7 @@ function hwItem(h, compact){
   const [lbl, cls] = dueLabel(h.due);
   return `<div class="hw${h.done ? ' done' : ''}">
     <input type="checkbox" data-hw="${esc(h.id)}" ${h.done ? 'checked' : ''} title="Сделано">
-    <div class="body"><div class="txt">${h.test ? '<span class="hw-test">тест</span>' : ''}${esc(h.text)}${compact ? ' · <span class="sm">' + esc(h.subject.replace(/ - продвинутый уровень/, '')) + '</span>' : ''}</div>
+    <div class="body"><div class="txt">${isExamHw(h) ? '<span class="hw-test">экзамен</span>' : isKrHw(h) ? '<span class="hw-test">тест</span>' : ''}${esc(h.text)}${compact ? ' · <span class="sm">' + esc(h.subject.replace(/ - продвинутый уровень/, '')) + '</span>' : ''}</div>
     ${compact ? '' : `<div class="sm">${esc(h.subject)}</div>`}</div>
     ${compact || h.done ? '' : `<span class="due ${cls}">${lbl}</span>`}
     <button class="x" data-del="${esc(h.id)}" title="Удалить">×</button></div>`;
@@ -890,37 +929,71 @@ function renderStats(){
   const ahead = live.filter(e => dt(e.start) > now);
   const hw = allHw();
   const inWeek = live.filter(e => ymd(e.start) >= mon && ymd(e.start) <= sun).length;
-  const zach = ahead.filter(e => ctrlKind(e.type) === 'zach' && !isRetake(e.type)).length;
-  const kr = ahead.filter(e => ctrlKind(e.type) === 'kr').length + hw.filter(h => h.test && !h.done && h.due >= today).length;
+  const zach = ahead.filter(e => ctrlKind(e.type) === 'zach' && !isRetake(e.type)).length + hw.filter(h => isExamHw(h) && !h.done && h.due >= today).length;
+  const kr = ahead.filter(e => ctrlKind(e.type) === 'kr').length + hw.filter(h => isKrHw(h) && !h.done && h.due >= today).length;
   $('stats').innerHTML = `<div class="stat"><b>${inWeek}</b><span>пар на этой неделе</span></div>
     <div class="stat"><b>${ahead.length}</b><span>пар до конца семестра</span></div>
-    <div class="stat exam"><b>${zach}</b><span>зачётов впереди</span></div>
+    <div class="stat exam"><b>${zach}</b><span>зачётов и экзаменов</span></div>
     <div class="stat exam"><b>${kr}</b><span>КР и тестов впереди</span></div>
     <div class="stat"><b>${hw.filter(h => !h.done).length}</b><span>открытых ДЗ</span></div>`;
 }
 
 // ---- Сводка по предметам ----
+const openSubj = new Set();   // какие предметы в сводке раскрыты
 function renderSummary(){
   const now = new Date(), map = new Map();
   for (const e of events){
-    if (!map.has(e.name)) map.set(e.name, { name: e.name, days: new Set(), pairs: 0, next: null, ctrl: [] });
+    if (!map.has(e.name)) map.set(e.name, { name: e.name, days: new Set(), pairs: 0, next: null, ctrl: [], rest: [] });
     const s = map.get(e.name);
     if (e.cancelled || dt(e.end) <= now) continue;
+    s.rest.push(e);
     const k = ctrlKind(e.type);
-    if (k && !isRetake(e.type)) s.ctrl.push({ k, d: ymd(e.start) });
+    if (k && !isRetake(e.type)) s.ctrl.push({ k, d: ymd(e.start), exam: /экзам/i.test(e.type) });
     if (isLesson(e.type)) { s.days.add(ymd(e.start)); s.pairs++; if (!s.next) s.next = e.start; }
   }
-  allHw().filter(h => h.test && !h.done && h.due >= todayStr()).forEach(h => { const s = map.get(h.subject); if (s) s.ctrl.push({ k: 'kr', d: h.due, test: true }); });
+  allHw().filter(h => (isKrHw(h) || isExamHw(h)) && !h.done && h.due >= todayStr()).forEach(h => {
+    const s = map.get(h.subject);
+    if (s) s.ctrl.push(isExamHw(h) ? { k: 'zach', d: h.due, exam: true, hw: true } : { k: 'kr', d: h.due, test: true });
+  });
   const rows = [...map.values()].sort((a,b) => (b.days.size - a.days.size) || a.name.localeCompare(b.name, 'ru'));
   $('sumList').innerHTML = rows.map(s => {
-    const n = s.days.size;
-    const ctrl = [...new Map(s.ctrl.sort((a,b) => a.d.localeCompare(b.d)).map(c => [c.k + c.d + (c.test || ''), c])).values()]
-      .map(c => `<span class="chip${c.k === 'kr' ? ' kr' : ''}">${c.k === 'zach' ? 'зачёт' : c.test ? 'тест' : 'КР'} ${fmtShort(c.d)}</span>`).join('');
-    const sub = n ? `${pluralPair(s.pairs)} · следующее ${fmtShort(ymd(s.next))}` : 'занятия закончились';
-    return `<div class="srow${n ? '' : ' done'}"><div class="sn">${esc(s.name.replace(/ - продвинутый уровень/, ''))}</div>
+    const n = s.days.size, open = openSubj.has(s.name);
+    const ctrl = [...new Map(s.ctrl.sort((a,b) => a.d.localeCompare(b.d)).map(c => [c.k + c.d + (c.test || '') + (c.exam || ''), c])).values()]
+      .map(c => `<span class="chip${c.k === 'kr' ? ' kr' : ''}">${c.k === 'zach' ? (c.exam ? 'экзамен' : 'зачёт') : c.test ? 'тест' : 'КР'} ${fmtShort(c.d)}</span>`).join('');
+    const sub = n ? `${pluralPair(s.pairs)} · следующее ${fmtShort(ymd(s.next))}` : (s.rest.length ? 'занятия закончились, остался контроль' : 'занятия закончились');
+    let list = '';
+    if (open) {
+      list = s.rest.length ? `<div class="slist">${s.rest.map(e => {
+        const tag = ctrlKind(e.type) ? ' ctrl' : '';
+        return `<div class="sitem${tag}" style="--k:${kindOf(e.type)}"><span class="sdate">${esc(fmtDay(e.start).replace(/^./, c => c.toUpperCase()))}</span>
+          <span>${hm(e.start)}–${hm(e.end)} · <b class="stype">${esc(e.type)}</b>${e.online ? ' · онлайн' : e.loc ? ' · ' + esc(e.loc.replace(/^.*?,\s*(?=[^,]*$)/, 'ауд. ')) : ''}${e.ov && e.ov.note ? ' · 📝 ' + esc(e.ov.note) : ''}</span></div>`;
+      }).join('')}</div>` : '<div class="slist sm">Больше занятий нет</div>';
+    }
+    return `<div class="srow${n || s.rest.length ? '' : ' done'}${open ? ' open' : ''}" data-subj="${esc(s.name)}"><div class="sn">${esc(s.name.replace(/ - продвинутый уровень/, ''))} <span class="arr">${open ? '▴' : '▾'}</span></div>
       <div class="big">${n}<small>${plural(n,'день','дня','дней').replace(/^\d+ /, '')}</small></div>
-      <div class="sd">${sub}${ctrl ? '<br>' + ctrl : ''}</div></div>`;
+      <div class="sd">${sub}${ctrl ? '<br>' + ctrl : ''}</div>${list}</div>`;
   }).join('') || '<div class="sm">Нет данных</div>';
+}
+
+// ---- Учебный год: где мы сейчас ----
+function renderYear(){
+  const today = todayStr(), cur = periodOf(today);
+  if (!cur) { $('year').innerHTML = ''; return; }
+  const left = Math.round((new Date(cur.to + 'T12:00') - new Date(today + 'T12:00')) / 864e5);
+  const upcoming = CALENDAR.filter(p => p.to >= today);
+  const nextHoliday = CALENDAR.find(p => p.kind === 'holiday' && p.from > today);
+  const nextSession = CALENDAR.find(p => p.kind === 'session' && p.from > today);
+  const until = p => p ? Math.round((new Date(p.from + 'T12:00') - new Date(today + 'T12:00')) / 864e5) : null;
+  const range = p => p.from === p.to ? fmtLong(p.from) : `${fmtLong(p.from)} — ${fmtLong(p.to)}`;
+  const wasOpen = !!$('year').querySelector('details[open]');
+  $('year').innerHTML = `<details class="panel sum ycal"${wasOpen ? ' open' : ''}>
+    <summary><div><div class="ynow">${cur.icon} ${esc(cur.title)}</div>
+      <div class="sm">до ${fmtLong(cur.to)} · ${left ? 'ещё ' + plural(left, 'день', 'дня', 'дней') : 'последний день'}${nextSession ? ` · до сессии ${plural(until(nextSession), 'день', 'дня', 'дней')}` : ''}${nextHoliday ? ` · до каникул ${plural(until(nextHoliday), 'день', 'дня', 'дней')}` : ''}</div></div>
+      <span class="cnt">учебный год ▾</span></summary>
+    <div class="ylist">${upcoming.map(p => `<div class="yp ${p.kind}${p === cur ? ' cur' : ''}"><span class="yi">${p.icon}</span>
+      <div><b>${esc(p.title)}</b><div class="sm">${range(p)}${p.note ? ' · ' + esc(p.note) : ''}</div></div></div>`).join('')}
+      <div class="sm" style="margin-top:8px">По календарному графику магистратуры СПбГУ на 2026/27 (приказ от 30.04.2026 № 6043/1).</div></div>
+  </details>`;
 }
 
 // ---- Список дней ----
@@ -936,21 +1009,27 @@ function renderList(){
   else if (filter === 'all') range(SEM.from, SEM.to);
   else days = [...new Set([
       ...events.filter(e => ctrlKind(e.type) === filter).map(e => ymd(e.start)),
-      ...(filter === 'kr' ? hw.filter(h => h.test).map(h => h.due) : [])
+      ...hw.filter(h => filter === 'kr' ? isKrHw(h) : isExamHw(h)).map(h => h.due)
     ])].filter(d => d >= today).sort();
   const onlyCtrl = filter === 'zach' || filter === 'kr';
-  if (!days.length) { $('list').innerHTML = `<div class="empty">${filter === 'zach' ? 'Зачётов впереди нет' : filter === 'kr' ? 'КР и тестов впереди нет' : 'Здесь пусто'} 🎉</div>`; return; }
+  if (!days.length) { $('list').innerHTML = `<div class="empty">${filter === 'zach' ? 'Зачётов и экзаменов впереди пока нет — экзамены появятся, когда их внесут в расписание' : filter === 'kr' ? 'КР и тестов впереди нет' : 'Здесь пусто'} 🎉</div>`; return; }
 
-  let html = '', lastWeek = '';
+  let html = '', lastWeek = '', lastPeriod = null;
   for (const day of days){
     let evs = byDay.get(day) || [];
     if (onlyCtrl) evs = evs.filter(e => ctrlKind(e.type) === filter);
-    const dayHw = hw.filter(h => h.due === day && (!onlyCtrl || (filter === 'kr' && h.test)));
+    const dayHw = hw.filter(h => h.due === day && (!onlyCtrl || (filter === 'kr' ? isKrHw(h) : isExamHw(h))));
+    const per = periodOf(day);
+    if (!onlyCtrl && per && per !== lastPeriod) {
+      if (lastPeriod || per.from === day || day === days[0]) html += `<div class="pband ${per.kind}">${per.icon} <b>${esc(per.title)}</b> · ${per.from === per.to ? fmtLong(per.from) : fmtLong(per.from) + ' — ' + fmtLong(per.to)}</div>`;
+      lastPeriod = per; lastWeek = '';
+    }
     const m = mondayOf(day);
     if (m !== lastWeek) { html += `<div class="week">${m === mon ? 'Эта неделя · ' : ''}${fmtShort(m)} — ${fmtShort(addDays(m, 6))}</div>`; lastWeek = m; }
     const isToday = day === today, n = evs.filter(e => !e.cancelled).length, free = !evs.length && !onlyCtrl;
-    html += `<section class="day${isToday ? ' today' : ''}${free ? ' free' : ''}"${isToday ? ' id="today"' : ''}>
-      <div class="dh"><span class="d">${esc(fmtDay(day))}${isToday ? '<span class="tag-today">сегодня</span>' : ''}</span><span class="c">${onlyCtrl ? '' : n ? pluralPair(n) : 'пар нет'}</span></div>`;
+    const hol = free && per && per.kind === 'holiday';
+    html += `<section class="day${isToday ? ' today' : ''}${free ? ' free' : ''}${hol ? ' hol' : ''}"${isToday ? ' id="today"' : ''}>
+      <div class="dh"><span class="d">${esc(fmtDay(day))}${isToday ? '<span class="tag-today">сегодня</span>' : ''}</span><span class="c">${onlyCtrl ? '' : n ? pluralPair(n) : hol ? 'каникулы' : 'пар нет'}</span></div>`;
     for (const e of evs){
       const past = dt(e.end) < now, nowing = dt(e.start) <= now && dt(e.end) > now;
       const o = e.ov || {}, flags = [];
@@ -988,6 +1067,12 @@ function renderList(){
 // ================= Общие обработчики =================
 document.addEventListener('click', async e => {
   if ($('menu') && !$('menu').hidden && !e.target.closest('#menu')) $('menu').hidden = true;
+  const sr = e.target.closest('.srow[data-subj]');
+  if (sr && !e.target.closest('a')) {
+    const n = sr.dataset.subj;
+    openSubj.has(n) ? openSubj.delete(n) : openSubj.add(n);
+    renderSummary(); return;
+  }
   const t = e.target.closest('[data-del],[data-ov],[data-ovsave],[data-ovclear]');
   if (!t) return;
   if (t.dataset.del) {               // удаление ДЗ: «×» → «Удалить?» → удалить
@@ -1026,7 +1111,7 @@ document.addEventListener('change', e => {
     route();
   });
   setInterval(() => { if (profile && profile.group && view === 'main') loadGroup(profile.group.id, true); }, 30 * 60 * 1000);
-  setInterval(() => { if (view === 'main') { renderNext(); renderStats(); renderSummary(); } }, 60 * 1000);
+  setInterval(() => { if (view === 'main') { renderNext(); renderStats(); renderYear(); renderSummary(); } }, 60 * 1000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden && view === 'main') showMain(); });
   window.app = { update: p => backend.update(p), DEL, get profile(){ return profile; }, get events(){ return events; } };
 })();
