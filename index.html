@@ -304,10 +304,9 @@ function buildCalendar(evs){
   }
   CALENDAR_BASE.filter(p => p.kind === 'holiday').forEach(p => ranges.push({ ...p, prio: 1 }));
   // раскладываем по дням с приоритетом: учёба > сессия > каникулы > «пар нет»
-  const out = [];
+  const out = [], GAP = { kind: 'gap', icon: '✅', title: 'Пар нет', note: 'занятия закончились, сессия ещё не началась', prio: 0 };
   for (let d = '2026-09-01'; d <= '2027-08-31'; d = addDays(d, 1)) {
-    const r = ranges.filter(x => d >= x.from && d <= x.to).sort((a, b) => b.prio - a.prio)[0]
-      || { kind: 'gap', icon: '✅', title: 'Пар нет', note: 'между занятиями и сессией', prio: 0 };
+    const r = ranges.filter(x => d >= x.from && d <= x.to).sort((a, b) => b.prio - a.prio)[0] || GAP;
     const last = out[out.length - 1];
     if (last && last.src === r) last.to = d;
     else out.push({ ...r, from: d, to: d, src: r });
