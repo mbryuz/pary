@@ -650,6 +650,7 @@ function route(){
   if (!profile) { app.innerHTML = '<div class="empty">Загружаю профиль…</div>'; view = null; return; }
   if (!profile.group || forced === 'group') return showGroup();
   if (forced === 'partner') { syncPartner(); return showPartner(); }
+  if (forced === 'notify') { syncReminders(); if (view !== 'notify') showNotify(); return; }
   if (loadedGid !== profile.group.id) loadGroup(profile.group.id);
   if (!profile.known || forced === 'choices') {
     if (!all.length) { app.innerHTML = `<div class="empty">${groupError ? 'Не удалось загрузить расписание: ' + esc(groupError) : 'Загружаю расписание группы…'}</div>`; view = null; return; }
@@ -659,7 +660,93 @@ function route(){
   buildCalendar(events);
   if (!backend.local && user.displayName && profile.name !== user.displayName) backend.update({ name: user.displayName });
   syncPartner();
+  syncReminders();
   showMain();
+}
+
+// ================= Пуш-уведомления =================
+// Сайт сам считает, о чём напомнить (за 24 часа до КР/зачёта/экзамена/пересдачи и до срока ДЗ),
+// и кладёт список в профиль. Раз в 15 минут GitHub Actions (send_push.py) рассылает подошедшие.
+const VAPID_PUBLIC = 'BJzBu4fLCrC1F7yIOsx5J-CiQKTh6Paqqh3AUUHXTdf7YLS4uu5MtNIb2VrpdxsNCxXCmXN7qctegKTD775OVIU';
+const shortName = s => s.replace(/ - продвинутый уровень/, '');
+function computeReminders(){
+  const now = Date.now(), out = [];
+  const add = (key, atMs, title, body) => { if (atMs > now - 3 * 36e5 && atMs < now + 14 * 864e5) out.push({ id: hash(key + '|' + atMs), at: new Date(atMs).toISOString(), title, body }); };
+  for (const e of events) {
+    const k = fk(e.type);
+    if (!k || e.cancelled) continue;
+    const label = k === 're' ? 'пересдача' : /экзам/i.test(e.type) ? 'экзамен' : k === 'zach' ? 'зачёт' : 'контрольная';
+    add('ev|' + e.ok, dt(e.start).getTime() - 864e5, `Завтра ${label}: ${shortName(e.name)}`, `${hm(e.start)} · ${e.online ? 'онлайн' : e.loc || ''}`);
+  }
+  for (const h of allHw()) {
+    if (h.done || h.due < todayStr()) continue;
+    const first = events.find(e => e.name === h.subject && ymd(e.start) === h.due && !e.cancelled);
+    const at = (first ? dt(first.start).getTime() : dt(h.due + 'T09:00:00').getTime()) - 864e5;
+    const what = isExamHw(h) ? 'Завтра зачёт/экзамен' : isKrHw(h) ? 'Завтра тест/КР' : 'Завтра сдать';
+    add('hw|' + h.id, at, `${what}: ${h.text}`, shortName(h.subject) + (first ? ` · пара в ${hm(first.start)}` : ''));
+  }
+  if (profile.testPush && Date.parse(profile.testPush.at) > now - 36e5) out.push(profile.testPush);
+  return out.sort((a, b) => a.at.localeCompare(b.at));
+}
+function syncReminders(){
+  if (backend.local || !profile.push || !Object.keys(profile.push).length) return;
+  const r = computeReminders();
+  if (JSON.stringify(r) !== JSON.stringify(profile.reminders || [])) backend.update({ reminders: r });
+}
+const b64ToU8 = s => { const b = atob((s + '='.repeat((4 - s.length % 4) % 4)).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(b, c => c.charCodeAt(0)); };
+let swReg = null;
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').then(r => swReg = r).catch(() => {});
+async function currentSub(){ try { const reg = swReg || await navigator.serviceWorker.ready; return await reg.pushManager.getSubscription(); } catch { return null; } }
+
+async function showNotify(){
+  view = 'notify';
+  const supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent), standalone = navigator.standalone || matchMedia('(display-mode: standalone)').matches;
+  const sub = supported ? await currentSub() : null;
+  const here = sub && (profile.push || {})[hash(sub.endpoint)];
+  const devices = Object.keys(profile.push || {}).length;
+  const rem = computeReminders().filter(r => Date.parse(r.at) > Date.now()).slice(0, 8);
+  app.innerHTML = `
+    <header><div><h1>🔔 Уведомления</h1><div class="sub">пуш за сутки до ДЗ, КР, зачётов, экзаменов и пересдач</div></div><button id="back">Готово</button></header>
+    <section class="panel">
+      ${!supported ? (ios && !standalone
+        ? '<h2>Сначала добавь сайт на экран «Домой»</h2><p class="sm">На iPhone пуши работают только у приложения с экрана «Домой»: в Safari нажми «Поделиться» → «На экран „Домой“», открой «Мои пары» оттуда и зайди в этот раздел снова. Нужна iOS 16.4 или новее.</p>'
+        : '<h2>Этот браузер не поддерживает пуши</h2><p class="sm">Попробуй Safari на iPhone (с экрана «Домой») или Chrome на компьютере/Android.</p>')
+      : here ? `<h2>✅ Уведомления включены на этом устройстве</h2><p class="sm">Устройств с уведомлениями: ${devices}.</p>
+          <div class="row" style="margin-top:10px"><button class="primary" id="nTest">Прислать тестовое</button><button id="nOff">Выключить на этом устройстве</button></div>`
+      : `<h2>Уведомления выключены на этом устройстве</h2><p class="sm">${Notification.permission === 'denied' ? 'Ты запретил уведомления — включи их в настройках iPhone: Настройки → Уведомления → Мои пары.' : 'Нажми кнопку и разреши уведомления.'}</p>
+          <div class="row" style="margin-top:10px"><button class="primary big" id="nOn" ${Notification.permission === 'denied' ? 'disabled' : ''}>Включить уведомления</button></div>`}
+      <div class="err" id="nErr"></div>
+    </section>
+    <section class="panel">
+      <h2>Ближайшие напоминания</h2>
+      <p class="sm">Приходят ровно за сутки до события: для пар — до начала пары, для ДЗ — до первой пары по предмету в день сдачи (или до 9:00, если пары нет). Возможна задержка до 15–20 минут.</p>
+      ${rem.length ? rem.map(r => `<div class="hw"><div class="body"><div class="txt">${esc(r.title)}</div><div class="sm">${esc(r.body)}</div></div><span class="due">${new Date(r.at).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span></div>`).join('') : '<div class="sm">В ближайшие две недели напоминать не о чем.</div>'}
+    </section>`;
+  $('back').onclick = () => { forced = null; route(); };
+  const err = m => { $('nErr').textContent = m; };
+  if ($('nOn')) $('nOn').onclick = async () => {
+    try {
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') return err('Уведомления не разрешены.');
+      const reg = swReg || await navigator.serviceWorker.ready;
+      const s = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToU8(VAPID_PUBLIC) });
+      const j = s.toJSON();
+      await backend.update({ ['push.' + hash(j.endpoint)]: { endpoint: j.endpoint, keys: j.keys, device: ios ? 'iPhone' : navigator.platform || 'устройство', added: Date.now() } });
+      profile.push = { ...(profile.push || {}), [hash(j.endpoint)]: true };
+      syncReminders(); showNotify();
+    } catch (e) { err('Не получилось включить: ' + (e.message || e)); }
+  };
+  if ($('nOff')) $('nOff').onclick = async () => {
+    const s = await currentSub();
+    if (s) { await backend.update({ ['push.' + hash(s.endpoint)]: DEL }); try { await s.unsubscribe(); } catch {} }
+    showNotify();
+  };
+  if ($('nTest')) $('nTest').onclick = async () => {
+    const t = { id: 'test' + Date.now().toString(36), at: new Date().toISOString(), title: 'Проверка уведомлений', body: 'Если ты это видишь — пуши работают 🎉' };
+    await backend.update({ testPush: t });
+    $('nTest').textContent = 'Отправлено — придёт в течение ~15 минут'; $('nTest').disabled = true;
+  };
 }
 
 // ================= Совместный режим =================
@@ -964,6 +1051,7 @@ function buildMain(){
       <div class="menu" id="menu" hidden>
         <div class="who"><b>${esc(user.displayName || '')}</b><span class="sm">${esc(user.email || '')}</span></div>
         <button data-act="choices">Мои предметы (элективы, преподаватели)</button>
+        <button data-act="notify">🔔 Уведомления</button>
         <button data-act="partner">Совместный режим</button>
         <button data-act="group">Сменить группу</button>
         <button data-act="logout">Выйти</button>
