@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#4f46e5">
 <title>Мои пары</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Мои пары">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -357,7 +364,15 @@ async function firebaseBackend(){
   catch { db = F.getFirestore(fapp); }
   let ref;
   return {
-    async signIn(){ const p = new A.GoogleAuthProvider(); p.setCustomParameters({ prompt: 'select_account' }); await A.signInWithPopup(auth, p); },
+    async signIn(){
+      const p = new A.GoogleAuthProvider(); p.setCustomParameters({ prompt: 'select_account' });
+      try { await A.signInWithPopup(auth, p); }
+      catch (e) {
+        // на iPhone в режиме «на экране Домой» окно входа иногда не открывается — входим переадресацией
+        if (['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment', 'auth/web-storage-unsupported'].includes(e.code)) await A.signInWithRedirect(auth, p);
+        else throw e;
+      }
+    },
     signOut: () => A.signOut(auth),
     onUser: f => A.onAuthStateChanged(auth, f),
     watch(uid, f){
