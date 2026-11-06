@@ -133,6 +133,7 @@ input:focus,select:focus{outline:2px solid var(--accent);outline-offset:-1px}
 @media (max-width:560px){ .sitem{grid-template-columns:1fr;gap:0} }
 .chip{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:6px;margin:2px 4px 0 0;background:var(--bad-bg);color:var(--bad)}
 .chip.kr{background:var(--warn-bg);color:var(--warn)}
+.chip.re{background:var(--bg);color:var(--muted);border:1px dashed var(--line)}
 
 .week{margin:26px 0 8px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
 .day{background:var(--card);border:1px solid var(--line);border-radius:16px;margin-bottom:12px;overflow:hidden;box-shadow:var(--shadow)}
@@ -945,10 +946,11 @@ function renderStats(){
   const hw = allHw();
   const inWeek = live.filter(e => ymd(e.start) >= mon && ymd(e.start) <= sun).length;
   const zach = ahead.filter(e => ctrlKind(e.type) === 'zach' && !isRetake(e.type)).length + hw.filter(h => isExamHw(h) && !h.done && h.due >= today).length;
+  const retakes = ahead.filter(e => ctrlKind(e.type) === 'zach' && isRetake(e.type)).length;
   const kr = ahead.filter(e => ctrlKind(e.type) === 'kr').length + hw.filter(h => isKrHw(h) && !h.done && h.due >= today).length;
   $('stats').innerHTML = `<div class="stat"><b>${inWeek}</b><span>пар на этой неделе</span></div>
     <div class="stat"><b>${ahead.length}</b><span>пар до конца семестра</span></div>
-    <div class="stat exam"><b>${zach}</b><span>зачётов и экзаменов</span></div>
+    <div class="stat exam"><b>${zach}</b><span>зачётов и экзаменов${retakes ? ` · +${retakes} ${plural(retakes, 'пересдача', 'пересдачи', 'пересдач').replace(/^\d+ /, '')}` : ''}</span></div>
     <div class="stat exam"><b>${kr}</b><span>КР и тестов впереди</span></div>
     <div class="stat"><b>${hw.filter(h => !h.done).length}</b><span>открытых ДЗ</span></div>`;
 }
@@ -963,7 +965,7 @@ function renderSummary(){
     if (e.cancelled || dt(e.end) <= now) continue;
     s.rest.push(e);
     const k = ctrlKind(e.type);
-    if (k && !isRetake(e.type)) s.ctrl.push({ k, d: ymd(e.start), exam: /экзам/i.test(e.type) });
+    if (k) s.ctrl.push({ k, d: ymd(e.start), exam: /экзам/i.test(e.type), retake: isRetake(e.type) });
     if (isLesson(e.type)) { s.days.add(ymd(e.start)); s.pairs++; if (!s.next) s.next = e.start; }
   }
   allHw().filter(h => (isKrHw(h) || isExamHw(h)) && !h.done && h.due >= todayStr()).forEach(h => {
@@ -973,8 +975,8 @@ function renderSummary(){
   const rows = [...map.values()].sort((a,b) => (b.days.size - a.days.size) || a.name.localeCompare(b.name, 'ru'));
   $('sumList').innerHTML = rows.map(s => {
     const n = s.days.size, open = openSubj.has(s.name);
-    const ctrl = [...new Map(s.ctrl.sort((a,b) => a.d.localeCompare(b.d)).map(c => [c.k + c.d + (c.test || '') + (c.exam || ''), c])).values()]
-      .map(c => `<span class="chip${c.k === 'kr' ? ' kr' : ''}">${c.k === 'zach' ? (c.exam ? 'экзамен' : 'зачёт') : c.test ? 'тест' : 'КР'} ${fmtShort(c.d)}</span>`).join('');
+    const ctrl = [...new Map(s.ctrl.sort((a,b) => a.d.localeCompare(b.d)).map(c => [c.k + c.d + (c.test || '') + (c.exam || '') + (c.retake || ''), c])).values()]
+      .map(c => `<span class="chip${c.k === 'kr' ? ' kr' : ''}${c.retake ? ' re' : ''}">${c.retake ? 'пересдача' : c.k === 'zach' ? (c.exam ? 'экзамен' : 'зачёт') : c.test ? 'тест' : 'КР'} ${fmtShort(c.d)}</span>`).join('');
     const sub = n ? `${pluralPair(s.pairs)} · следующее ${fmtShort(ymd(s.next))}` : (s.rest.length ? 'занятия закончились, остался контроль' : 'занятия закончились');
     let list = '';
     if (open) {
