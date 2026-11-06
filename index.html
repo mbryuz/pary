@@ -272,16 +272,45 @@ const CALENDAR_BASE = [
   { from: '2027-07-27', to: '2027-08-31', kind: 'holiday', icon: '☀️', title: 'Летние каникулы', note: '' },
 ];
 let CALENDAR = CALENDAR_BASE;
+// Правила (по просьбе пользователя):
+//  • учёба — от первой до последней пары семестра;
+//  • сессия — от первой консультации перед экзаменом до последнего показа работ;
+//  • каникулы — по графику СПбГУ; если данных о парах/экзаменах ещё нет — даты из графика.
 function buildCalendar(evs){
-  const lessons = evs.filter(e => !e.cancelled && isLesson(e.type)).map(e => ymd(e.start));
+  const live = evs.filter(e => !e.cancelled);
+  const terms = [
+    { from: '2026-09-01', to: '2027-02-10', sess: 'Зимняя сессия', season: 'осенний семестр' },
+    { from: '2027-02-11', to: '2027-08-31', sess: 'Летняя сессия', season: 'весенний семестр' },
+  ];
+  const ranges = [];   // { from, to, kind, icon, title, note, prio }
+  for (const t of terms){
+    const inT = live.filter(e => ymd(e.start) >= t.from && ymd(e.start) <= t.to);
+    const les = inT.filter(e => isLesson(e.type)).map(e => ymd(e.start));
+    const baseStudy = CALENDAR_BASE.find(p => p.kind === 'study' && p.from >= t.from && p.from <= t.to);
+    const baseSess = CALENDAR_BASE.find(p => p.kind === 'session' && p.from >= t.from && p.from <= t.to);
+    if (les.length) ranges.push({ from: les[0], to: les[les.length - 1], kind: 'study', icon: '📚', title: 'Учебные занятия', note: `${t.season} · первая пара ${fmtLong(les[0])}, последняя ${fmtLong(les[les.length - 1])}`, prio: 3 });
+    else if (baseStudy) ranges.push({ ...baseStudy, note: t.season + ' · даты уточнятся по расписанию', prio: 3 });
+    // сессия: первая консультация по предмету, у которого есть экзамен, → последний показ работ
+    const examSubj = new Set(inT.filter(e => /экзам/i.test(e.type)).map(e => e.name));
+    const cons = inT.filter(e => /консультац/i.test(e.type) && examSubj.has(e.name)).map(e => ymd(e.start));
+    const firstExam = inT.filter(e => /экзам/i.test(e.type)).map(e => ymd(e.start))[0];
+    const sFrom = cons[0] || firstExam;
+    if (sFrom) {
+      const shows = inT.filter(e => /показ работ/i.test(e.type) && ymd(e.start) >= sFrom).map(e => ymd(e.start));
+      const lastExam = inT.filter(e => /экзам/i.test(e.type)).map(e => ymd(e.start)).pop();
+      const sTo = shows.length ? shows[shows.length - 1] : lastExam;
+      ranges.push({ from: sFrom, to: sTo, kind: 'session', icon: '🎓', title: t.sess, note: `первая консультация ${fmtLong(sFrom)} — последний показ работ ${fmtLong(sTo)}`, prio: 2 });
+    } else if (baseSess) ranges.push({ ...baseSess, note: 'по графику СПбГУ · уточнится, когда в расписании появятся экзамены', prio: 2 });
+  }
+  CALENDAR_BASE.filter(p => p.kind === 'holiday').forEach(p => ranges.push({ ...p, prio: 1 }));
+  // раскладываем по дням с приоритетом: учёба > сессия > каникулы > «пар нет»
   const out = [];
-  for (const p of CALENDAR_BASE){
-    if (p.kind !== 'study') { out.push(p); continue; }
-    const inside = lessons.filter(d => d >= p.from && d <= p.to);
-    const last = inside.length ? inside[inside.length - 1] : null;
-    if (!last) { out.push(p); continue; }               // расписания на этот семестр ещё нет
-    out.push({ ...p, to: last, note: 'последняя пара — ' + fmtLong(last) });
-    if (last < p.to) out.push({ from: addDays(last, 1), to: p.to, kind: 'gap', icon: '✅', title: 'Пар больше нет', note: 'зачёты, пересдачи и показ работ — по расписанию' });
+  for (let d = '2026-09-01'; d <= '2027-08-31'; d = addDays(d, 1)) {
+    const r = ranges.filter(x => d >= x.from && d <= x.to).sort((a, b) => b.prio - a.prio)[0]
+      || { kind: 'gap', icon: '✅', title: 'Пар нет', note: 'между занятиями и сессией', prio: 0 };
+    const last = out[out.length - 1];
+    if (last && last.src === r) last.to = d;
+    else out.push({ ...r, from: d, to: d, src: r });
   }
   CALENDAR = out;
 }
@@ -505,6 +534,8 @@ function ctrlKind(type){
   return null;
 }
 const isRetake = t => /пересдач/i.test(t||'');
+// Вид для вкладок: пересдачи отдельно от зачётов/экзаменов и КР
+const fk = t => ctrlKind(t) ? (isRetake(t) ? 're' : ctrlKind(t)) : null;
 const isExamHw = h => h.kind === 'exam';
 const isKrHw = h => h.kind === 'kr' || (!h.kind && h.test);
 const isLesson = t => /лекц|семинар|практ|сам\. работа|лаборатор/i.test(t||'');
@@ -843,6 +874,7 @@ function buildMain(){
     <button data-f="week">Эта неделя</button>
     <button data-f="zach">Зачёты и экзамены</button>
     <button data-f="kr">КР и тесты</button>
+    <button data-f="re">Пересдачи</button>
     <button data-f="all">Весь семестр</button>
   </div>
   <div id="list"></div>
@@ -946,8 +978,8 @@ function renderStats(){
   const hw = allHw();
   const inWeek = live.filter(e => ymd(e.start) >= mon && ymd(e.start) <= sun).length;
   const zach = ahead.filter(e => ctrlKind(e.type) === 'zach' && !isRetake(e.type)).length + hw.filter(h => isExamHw(h) && !h.done && h.due >= today).length;
-  const retakes = ahead.filter(e => ctrlKind(e.type) === 'zach' && isRetake(e.type)).length;
-  const kr = ahead.filter(e => ctrlKind(e.type) === 'kr').length + hw.filter(h => isKrHw(h) && !h.done && h.due >= today).length;
+  const retakes = ahead.filter(e => fk(e.type) === 're').length;
+  const kr = ahead.filter(e => fk(e.type) === 'kr').length + hw.filter(h => isKrHw(h) && !h.done && h.due >= today).length;
   $('stats').innerHTML = `<div class="stat"><b>${inWeek}</b><span>пар на этой неделе</span></div>
     <div class="stat"><b>${ahead.length}</b><span>пар до конца семестра</span></div>
     <div class="stat exam"><b>${zach}</b><span>зачётов и экзаменов${retakes ? ` · +${retakes} ${plural(retakes, 'пересдача', 'пересдачи', 'пересдач').replace(/^\d+ /, '')}` : ''}</span></div>
@@ -1009,7 +1041,7 @@ function renderYear(){
       <span class="cnt">учебный год ▾</span></summary>
     <div class="ylist">${upcoming.map(p => `<div class="yp ${p.kind}${p === cur ? ' cur' : ''}"><span class="yi">${p.icon}</span>
       <div><b>${esc(p.title)}</b><div class="sm">${range(p)}${p.note ? ' · ' + esc(p.note) : ''}</div></div></div>`).join('')}
-      <div class="sm" style="margin-top:8px">Сессии и каникулы — по календарному графику магистратуры СПбГУ на 2026/27 (приказ от 30.04.2026 № 6043/1), конец занятий — по последней паре в твоём расписании.</div></div>
+      <div class="sm" style="margin-top:8px">Учёба — от первой до последней пары в твоём расписании. Сессия — от первой консультации перед экзаменом до последнего показа работ (пока экзаменов в расписании нет — по графику СПбГУ). Каникулы — по календарному графику магистратуры СПбГУ на 2026/27.</div></div>
   </details>`;
 }
 
@@ -1025,17 +1057,17 @@ function renderList(){
   else if (filter === 'week') range(mon, sun);
   else if (filter === 'all') range(SEM.from, SEM.to);
   else days = [...new Set([
-      ...events.filter(e => ctrlKind(e.type) === filter).map(e => ymd(e.start)),
-      ...hw.filter(h => filter === 'kr' ? isKrHw(h) : isExamHw(h)).map(h => h.due)
+      ...events.filter(e => fk(e.type) === filter).map(e => ymd(e.start)),
+      ...hw.filter(h => filter === 'kr' ? isKrHw(h) : filter === 'zach' ? isExamHw(h) : false).map(h => h.due)
     ])].filter(d => d >= today).sort();
-  const onlyCtrl = filter === 'zach' || filter === 'kr';
-  if (!days.length) { $('list').innerHTML = `<div class="empty">${filter === 'zach' ? 'Зачётов и экзаменов впереди пока нет — экзамены появятся, когда их внесут в расписание' : filter === 'kr' ? 'КР и тестов впереди нет' : 'Здесь пусто'} 🎉</div>`; return; }
+  const onlyCtrl = filter === 'zach' || filter === 'kr' || filter === 're';
+  if (!days.length) { $('list').innerHTML = `<div class="empty">${filter === 'zach' ? 'Зачётов и экзаменов впереди пока нет — экзамены появятся, когда их внесут в расписание' : filter === 'kr' ? 'КР и тестов впереди нет' : filter === 're' ? 'Пересдач в расписании нет' : 'Здесь пусто'} 🎉</div>`; return; }
 
   let html = '', lastWeek = '', lastPeriod = null;
   for (const day of days){
     let evs = byDay.get(day) || [];
-    if (onlyCtrl) evs = evs.filter(e => ctrlKind(e.type) === filter);
-    const dayHw = hw.filter(h => h.due === day && (!onlyCtrl || (filter === 'kr' ? isKrHw(h) : isExamHw(h))));
+    if (onlyCtrl) evs = evs.filter(e => fk(e.type) === filter);
+    const dayHw = hw.filter(h => h.due === day && (!onlyCtrl || (filter === 'kr' ? isKrHw(h) : filter === 'zach' ? isExamHw(h) : false)));
     const per = periodOf(day);
     if (!onlyCtrl && per && per !== lastPeriod) {
       if (lastPeriod || per.from === day || day === days[0]) html += `<div class="pband ${per.kind}">${per.icon} <b>${esc(per.title)}</b> · ${per.from === per.to ? fmtLong(per.from) : fmtLong(per.from) + ' — ' + fmtLong(per.to)}</div>`;
