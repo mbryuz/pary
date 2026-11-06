@@ -127,6 +127,7 @@ input:focus,select:focus{outline:2px solid var(--accent);outline-offset:-1px}
 .pband{margin:26px 0 4px;padding:10px 14px;border-radius:12px;font-size:14px;background:var(--accent-soft);color:var(--accent)}
 .pband.holiday{background:color-mix(in srgb,var(--ok) 14%,transparent);color:var(--ok)}
 .pband.session{background:var(--bad-bg);color:var(--bad)}
+.pband.gap{background:var(--bg);color:var(--muted);border:1px dashed var(--line)}
 .pband + .week{margin-top:10px}
 .day.hol .c{color:var(--ok)}
 @media (max-width:560px){ .sitem{grid-template-columns:1fr;gap:0} }
@@ -259,17 +260,30 @@ const ls = {
 
 // Учебный график СПбГУ на 2026/27 (магистратура; приказ от 30.04.2026 № 6043/1).
 // Осень начинается 1 сентября — как в расписании групп.
-const CALENDAR = [
-  { from: '2026-09-01', to: '2026-12-22', kind: 'study',   icon: '📚', title: 'Учебные занятия', note: 'зачёты — по ходу семестра' },
-  { from: '2026-12-23', to: '2026-12-29', kind: 'study',   icon: '📝', title: 'Зачётная неделя', note: 'последние занятия, зачёты и экзамены' },
+// Конец учёбы в семестре уточняется по последней паре в расписании группы (см. buildCalendar).
+const CALENDAR_BASE = [
+  { from: '2026-09-01', to: '2026-12-29', kind: 'study',   icon: '📚', title: 'Учебные занятия', note: 'осенний семестр' },
   { from: '2026-12-30', to: '2027-01-08', kind: 'holiday', icon: '🎄', title: 'Новогодние каникулы', note: 'возможны зачёты и экзамены' },
   { from: '2027-01-09', to: '2027-01-29', kind: 'session', icon: '🎓', title: 'Зимняя сессия', note: 'зачёты, экзамены, пересдачи' },
   { from: '2027-01-30', to: '2027-02-10', kind: 'holiday', icon: '❄️', title: 'Зимние каникулы', note: '' },
-  { from: '2027-02-11', to: '2027-05-30', kind: 'study',   icon: '📚', title: 'Учебные занятия', note: 'весенний семестр' },
-  { from: '2027-05-31', to: '2027-06-14', kind: 'study',   icon: '📝', title: 'Зачётная неделя', note: 'последние занятия, зачёты и экзамены' },
+  { from: '2027-02-11', to: '2027-06-14', kind: 'study',   icon: '📚', title: 'Учебные занятия', note: 'весенний семестр' },
   { from: '2027-06-15', to: '2027-07-26', kind: 'session', icon: '🎓', title: 'Летняя сессия', note: 'зачёты, экзамены, пересдачи' },
   { from: '2027-07-27', to: '2027-08-31', kind: 'holiday', icon: '☀️', title: 'Летние каникулы', note: '' },
 ];
+let CALENDAR = CALENDAR_BASE;
+function buildCalendar(evs){
+  const lessons = evs.filter(e => !e.cancelled && isLesson(e.type)).map(e => ymd(e.start));
+  const out = [];
+  for (const p of CALENDAR_BASE){
+    if (p.kind !== 'study') { out.push(p); continue; }
+    const inside = lessons.filter(d => d >= p.from && d <= p.to);
+    const last = inside.length ? inside[inside.length - 1] : null;
+    if (!last) { out.push(p); continue; }               // расписания на этот семестр ещё нет
+    out.push({ ...p, to: last, note: 'последняя пара — ' + fmtLong(last) });
+    if (last < p.to) out.push({ from: addDays(last, 1), to: p.to, kind: 'gap', icon: '✅', title: 'Пар больше нет', note: 'зачёты, пересдачи и показ работ — по расписанию' });
+  }
+  CALENDAR = out;
+}
 const periodOf = d => CALENDAR.find(p => d >= p.from && d <= p.to);
 function semester(){
   const t = todayStr(), y = +t.slice(0,4), md = t.slice(5);
@@ -552,6 +566,7 @@ function route(){
     return showChoices();
   }
   events = filterMine(all, an, profile);
+  buildCalendar(events);
   showMain();
 }
 
@@ -988,11 +1003,11 @@ function renderYear(){
   const wasOpen = !!$('year').querySelector('details[open]');
   $('year').innerHTML = `<details class="panel sum ycal"${wasOpen ? ' open' : ''}>
     <summary><div><div class="ynow">${cur.icon} ${esc(cur.title)}</div>
-      <div class="sm">до ${fmtLong(cur.to)} · ${left ? 'ещё ' + plural(left, 'день', 'дня', 'дней') : 'последний день'}${nextSession ? ` · до сессии ${plural(until(nextSession), 'день', 'дня', 'дней')}` : ''}${nextHoliday ? ` · до каникул ${plural(until(nextHoliday), 'день', 'дня', 'дней')}` : ''}</div></div>
+      <div class="sm">${cur.kind === 'study' ? 'последняя пара ' : 'до '}${fmtLong(cur.to)} · ${left ? 'ещё ' + plural(left, 'день', 'дня', 'дней') : 'последний день'}${nextSession ? ` · до сессии ${plural(until(nextSession), 'день', 'дня', 'дней')}` : ''}${nextHoliday ? ` · до каникул ${plural(until(nextHoliday), 'день', 'дня', 'дней')}` : ''}</div></div>
       <span class="cnt">учебный год ▾</span></summary>
     <div class="ylist">${upcoming.map(p => `<div class="yp ${p.kind}${p === cur ? ' cur' : ''}"><span class="yi">${p.icon}</span>
       <div><b>${esc(p.title)}</b><div class="sm">${range(p)}${p.note ? ' · ' + esc(p.note) : ''}</div></div></div>`).join('')}
-      <div class="sm" style="margin-top:8px">По календарному графику магистратуры СПбГУ на 2026/27 (приказ от 30.04.2026 № 6043/1).</div></div>
+      <div class="sm" style="margin-top:8px">Сессии и каникулы — по календарному графику магистратуры СПбГУ на 2026/27 (приказ от 30.04.2026 № 6043/1), конец занятий — по последней паре в твоём расписании.</div></div>
   </details>`;
 }
 
