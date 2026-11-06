@@ -707,7 +707,7 @@ async function showNotify(){
   const devices = Object.keys(profile.push || {}).length;
   const rem = computeReminders().filter(r => Date.parse(r.at) > Date.now()).slice(0, 8);
   app.innerHTML = `
-    <header><div><h1>🔔 Уведомления</h1><div class="sub">пуш за сутки до ДЗ, КР, зачётов, экзаменов и пересдач</div></div><button id="back">Готово</button></header>
+    <header><div><h1>Уведомления</h1><div class="sub">пуш за сутки до ДЗ, КР, зачётов, экзаменов и пересдач</div></div><button id="back">Готово</button></header>
     <section class="panel">
       ${!supported ? (ios && !standalone
         ? '<h2>Сначала добавь сайт на экран «Домой»</h2><p class="sm">На iPhone пуши работают только у приложения с экрана «Домой»: в Safari нажми «Поделиться» → «На экран „Домой“», открой «Мои пары» оттуда и зайди в этот раздел снова. Нужна iOS 16.4 или новее.</p>'
@@ -1051,7 +1051,7 @@ function buildMain(){
       <div class="menu" id="menu" hidden>
         <div class="who"><b>${esc(user.displayName || '')}</b><span class="sm">${esc(user.email || '')}</span></div>
         <button data-act="choices">Мои предметы (элективы, преподаватели)</button>
-        <button data-act="notify">🔔 Уведомления</button>
+        <button data-act="notify">Уведомления</button>
         <button data-act="partner">Совместный режим</button>
         <button data-act="group">Сменить группу</button>
         <button data-act="logout">Выйти</button>
