@@ -1,0 +1,1035 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#4f46e5">
+<title>Мои пары</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f4f5f8; --card:#ffffff; --ink:#15171c; --muted:#6b7180; --line:#e4e6ec;
+  --accent:#4f46e5; --accent-soft:#eef0ff;
+  --lec:#2563eb; --sem:#0d9488; --prac:#d97706; --exam:#dc2626; --other:#7c3aed;
+  --warn-bg:#fff5e6; --warn:#b45309; --bad-bg:#fdecec; --bad:#b91c1c; --ok:#16a34a;
+  --shadow:0 1px 2px rgba(20,23,30,.05),0 4px 16px rgba(20,23,30,.05);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0f1115; --card:#171a21; --ink:#e9ebf0; --muted:#8b91a0; --line:#262a33;
+    --accent:#8b8cf8; --accent-soft:#1f2133;
+    --lec:#60a5fa; --sem:#2dd4bf; --prac:#fbbf24; --exam:#f87171; --other:#a78bfa;
+    --warn-bg:#2b2112; --warn:#fbbf24; --bad-bg:#2c1416; --bad:#f87171; --ok:#4ade80;
+    --shadow:none;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 Manrope,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:820px;margin:0 auto;padding:28px 16px 64px}
+header{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:20px}
+h1{font-size:28px;font-weight:800;margin:0;letter-spacing:-.02em}
+h2{font-size:16px;font-weight:800;margin:0}
+.sub{color:var(--muted);font-size:13px;margin-top:2px}
+.sm{font-size:12px;color:var(--muted)}
+.hdr-r{display:flex;align-items:center;gap:10px;position:relative}
+.status{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:8px}
+.dot{width:8px;height:8px;border-radius:50%;background:#9ca3af;flex:none}
+.dot.ok{background:#22c55e}.dot.err{background:#ef4444}.dot.load{background:#f59e0b;animation:p 1s infinite}
+@keyframes p{50%{opacity:.3}}
+button,input,select{font:inherit;color:var(--ink)}
+button{cursor:pointer;border:1px solid var(--line);background:var(--card);border-radius:10px;padding:6px 12px;font-size:13px;font-weight:600}
+button:hover{border-color:var(--accent)}
+button:disabled{opacity:.5;cursor:default}
+button.on,button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.big{font-size:15px;padding:12px 20px;border-radius:12px}
+button.ghost{background:none;border-color:transparent;color:var(--muted)}
+input,select{border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:8px 10px;font-size:14px;min-width:0}
+input:focus,select:focus{outline:2px solid var(--accent);outline-offset:-1px}
+.avatar{width:36px;height:36px;border-radius:50%;padding:0;overflow:hidden;display:grid;place-items:center;font-weight:800;background:var(--accent-soft);color:var(--accent);border:0}
+.avatar img{width:100%;height:100%;object-fit:cover}
+.menu{position:absolute;right:0;top:44px;z-index:10;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.15);padding:8px;min-width:230px}
+.menu .who{padding:6px 10px 10px;border-bottom:1px solid var(--line);margin-bottom:6px}
+.menu .who b{display:block;font-size:14px}
+.menu button{display:block;width:100%;text-align:left;border:0;background:none;padding:9px 10px;font-size:14px}
+.menu button:hover{background:var(--bg)}
+
+.hero{max-width:460px;margin:12vh auto 0;text-align:center}
+.hero h1{font-size:38px}
+.hero p{color:var(--muted);margin:12px 0 26px}
+.err{color:var(--bad);font-size:13px;margin-top:10px}
+
+.next{background:linear-gradient(135deg,var(--accent),#7c3aed);color:#fff;border-radius:18px;padding:20px 22px;margin-bottom:18px;box-shadow:var(--shadow)}
+.next .lbl{font-size:12px;text-transform:uppercase;letter-spacing:.08em;opacity:.8;font-weight:700}
+.next .t{font-size:20px;font-weight:800;margin:6px 0 4px}
+.next .m{font-size:14px;opacity:.9}
+.next .cd{display:inline-block;margin-top:10px;background:rgba(255,255,255,.18);border-radius:999px;padding:4px 12px;font-size:13px;font-weight:700}
+
+.panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:18px;box-shadow:var(--shadow)}
+.panel-h{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px}
+.panel-h .cnt{font-size:12px;color:var(--muted)}
+.banner{background:var(--warn-bg);color:var(--warn);border-radius:14px;padding:12px 16px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;gap:10px;font-weight:600;font-size:14px}
+
+.hw{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-top:1px solid var(--line)}
+.hw:first-child{border-top:0}
+.hw input[type=checkbox]{width:18px;height:18px;margin:2px 0 0;accent-color:var(--accent);flex:none;cursor:pointer;padding:0}
+.hw .body{flex:1;min-width:0}
+.hw .txt{font-weight:600}
+.hw.done .txt{text-decoration:line-through;color:var(--muted)}
+.hw .sm{margin-top:1px}
+.hw .due{font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;white-space:nowrap;background:var(--accent-soft);color:var(--accent)}
+.hw .due.soon{background:var(--warn-bg);color:var(--warn)}
+.hw .due.late{background:var(--bad-bg);color:var(--bad)}
+.x{border:0;background:none;color:var(--muted);padding:0 4px;font-size:16px;line-height:1}
+.x:hover{color:var(--bad)}
+.x.arm{background:var(--bad);color:#fff;border-radius:6px;font-size:11px;font-weight:700;padding:3px 8px;white-space:nowrap}
+.hw-test{font-size:10px;font-weight:800;color:var(--exam);border:1px solid var(--exam);border-radius:4px;padding:0 5px;margin-right:6px;vertical-align:1px;text-transform:uppercase;letter-spacing:.04em}
+.add{display:grid;grid-template-columns:1fr 1fr 140px auto;gap:8px;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
+.add input[name=text]{grid-column:1/-1}
+.add label{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.muted-link{font-size:12px;color:var(--muted);background:none;border:0;padding:0;text-decoration:underline dotted}
+
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;align-items:center}
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:18px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.stat b{display:block;font-size:22px;font-weight:800}
+.stat span{font-size:12px;color:var(--muted)}
+.stat.exam b{color:var(--exam)}
+
+.sum summary{display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer;list-style:none}
+.sum summary::-webkit-details-marker{display:none}
+.sum summary h2::after{content:" ▾";color:var(--muted);font-size:13px}
+.sum[open] summary h2::after{content:" ▴"}
+.sum summary .cnt{font-size:12px;color:var(--muted)}
+.sum[open] summary{margin-bottom:6px}
+.srow{display:grid;grid-template-columns:1fr auto;gap:4px 12px;padding:10px 0;border-top:1px solid var(--line);align-items:center}
+.srow .sn{font-weight:700}
+.srow .sd{font-size:12px;color:var(--muted);grid-column:1}
+.srow .big{grid-row:1/3;grid-column:2;text-align:right;font-weight:800;font-size:20px;font-variant-numeric:tabular-nums}
+.srow .big small{display:block;font-size:11px;font-weight:600;color:var(--muted)}
+.srow.done{opacity:.5}
+.chip{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:6px;margin:2px 4px 0 0;background:var(--bad-bg);color:var(--bad)}
+.chip.kr{background:var(--warn-bg);color:var(--warn)}
+
+.week{margin:26px 0 8px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.day{background:var(--card);border:1px solid var(--line);border-radius:16px;margin-bottom:12px;overflow:hidden;box-shadow:var(--shadow)}
+.day.today{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.day.free .dh{border-bottom:0}
+.day.free .c{font-weight:600}
+.dh{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line)}
+.dh .d{font-weight:800}
+.dh .d::first-letter{text-transform:uppercase}
+.dh .c{font-size:12px;color:var(--muted)}
+.tag-today{background:var(--accent);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;margin-left:8px}
+.ev{display:grid;grid-template-columns:84px 1fr auto;gap:14px;padding:12px 16px;border-top:1px solid var(--line);position:relative}
+.dh + .ev{border-top:0}
+.ev::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:3px;border-radius:0 3px 3px 0;background:var(--k)}
+.ev.past{opacity:.45}
+.ev.now{background:var(--accent-soft)}
+.tm{font-weight:700;font-variant-numeric:tabular-nums;font-size:14px}
+.tm small{display:block;color:var(--muted);font-weight:500;font-size:12px}
+.nm{font-weight:700}
+.kind{display:inline-block;font-size:11px;font-weight:700;color:var(--k);border:1px solid var(--k);border-radius:999px;padding:0 8px;margin-left:6px;vertical-align:1px;white-space:nowrap}
+.meta{color:var(--muted);font-size:13px;margin-top:3px}
+.meta a{color:inherit;text-decoration:underline dotted}
+.online{color:var(--sem);font-weight:700}
+.flags{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.flag{font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:var(--warn-bg);color:var(--warn)}
+.flag.bad{background:var(--bad-bg);color:var(--bad)}
+.flag.new{background:var(--accent-soft);color:var(--accent)}
+.flag.note{background:var(--bg);color:var(--ink);font-weight:600}
+.ev.cancel .nm{text-decoration:line-through}
+.evx{border:0;background:none;color:var(--muted);font-size:18px;line-height:1;padding:2px 6px;align-self:start;border-radius:8px}
+.evx:hover{background:var(--bg);color:var(--ink)}
+.oved{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;background:var(--bg);border-radius:12px;padding:10px 12px}
+.oved label{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600}
+.oved input[type=text]{flex:1;min-width:180px;background:var(--card)}
+.dayhw{padding:10px 16px 12px;border-top:1px solid var(--line);background:var(--bg)}
+.dayhw .lbl{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:2px}
+.dayhw .hw{padding:5px 0;border:0}
+.empty{text-align:center;color:var(--muted);padding:40px 0}
+footer{margin-top:30px;font-size:12px;color:var(--muted);text-align:center}
+footer a{color:inherit}
+
+/* мастер */
+.step{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin-bottom:6px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.row input{flex:1;min-width:200px}
+.or{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:12px;margin:18px 0 12px}
+.or::before,.or::after{content:"";flex:1;height:1px;background:var(--line)}
+.ac{position:relative}
+.ac input{width:100%;font-size:17px;padding:12px 14px;border-radius:12px}
+.sugg{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:5;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.15);overflow:hidden}
+.si{display:block;width:100%;text-align:left;border:0;border-radius:0;background:none;padding:10px 14px;border-top:1px solid var(--line)}
+.si:first-child{border-top:0}
+.si b{display:block;font-size:15px}
+.si span{font-size:12px;color:var(--muted);font-weight:500}
+.si.act,.si:hover{background:var(--accent-soft)}
+.found{margin-top:14px;padding:14px;border-radius:12px;background:var(--accent-soft);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.found b{font-size:17px}
+.q{border-top:1px solid var(--line);padding:14px 0}
+.q:first-of-type{border-top:0}
+.qh{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.qh b{font-size:15px}
+.tag{font-size:11px;font-weight:700;padding:1px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent)}
+.tag.par{background:var(--warn-bg);color:var(--warn)}
+.sw{display:flex;align-items:center;gap:8px;margin-top:8px;font-weight:600;cursor:pointer}
+.sw input{width:18px;height:18px;accent-color:var(--accent)}
+.tl{margin-top:8px;display:grid;gap:4px;padding-left:2px}
+.tl label{display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer;padding:4px 0}
+.tl input{accent-color:var(--accent);width:16px;height:16px}
+.tl .cnt{color:var(--muted);font-size:12px}
+.q.off .tl{display:none}
+.actions{display:flex;justify-content:space-between;gap:10px;margin-top:16px;flex-wrap:wrap}
+
+@media (max-width:560px){
+  .ev{grid-template-columns:60px 1fr auto;gap:10px}
+  h1{font-size:24px}
+  .stats{grid-template-columns:repeat(6,1fr)}
+  .stat{grid-column:span 2}
+  .stat:nth-child(-n+2){grid-column:span 3}
+  .stat b{font-size:18px}
+  .add{grid-template-columns:1fr 1fr}
+  .add select{grid-column:1/-1}
+}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"><div class="empty">Загрузка…</div></div>
+
+<script type="module">
+// ================= Настройки =================
+const FIREBASE = {
+  apiKey: "AIzaSyCoSUxfqG1bzmSbanqdStZOs_gZZ6CtIWY",
+  authDomain: "raspisanie-spbu.firebaseapp.com",
+  projectId: "raspisanie-spbu",
+  storageBucket: "raspisanie-spbu.firebasestorage.app",
+  messagingSenderId: "77511041312",
+  appId: "1:77511041312:web:4bdc807c0deccd16bc3745"
+};
+const FB_VER = '10.12.2';
+const API = 'https://timetable.spbu.ru/api/v1';
+
+// ================= Утилиты =================
+const $ = id => document.getElementById(id);
+const app = $('app');
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const pad = n => String(n).padStart(2,'0');
+const dstr = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const MSK = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Moscow' });
+const todayStr = () => MSK.format(new Date());
+const dt = s => new Date(s + '+03:00');           // время СПбГУ — московское
+const hm = s => s.slice(11,16);
+const ymd = s => s.slice(0,10);
+const addDays = (s, n) => { const d = new Date(s+'T12:00'); d.setDate(d.getDate()+n); return dstr(d); };
+const mondayOf = s => { const d = new Date(s.slice(0,10)+'T12:00'); d.setDate(d.getDate() - ((d.getDay()+6)%7)); return dstr(d); };
+const fmtDay = s => new Date(s.slice(0,10)+'T12:00').toLocaleDateString('ru-RU',{weekday:'long', day:'numeric', month:'long'});
+const fmtShort = s => new Date(s+'T12:00').toLocaleDateString('ru-RU',{day:'numeric', month:'short'});
+const fmtLong = s => new Date(s+'T12:00').toLocaleDateString('ru-RU',{day:'numeric', month:'long'});
+const fmtTime = t => new Date(t).toLocaleString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+const plural = (n, one, few, many) => { const a=n%10, b=n%100; return n + ' ' + (a===1&&b!==11?one:(a>=2&&a<=4&&(b<10||b>=20))?few:many); };
+const pluralPair = n => plural(n,'пара','пары','пар');
+const hash = s => { let h = 5381; for (let i=0;i<s.length;i++) h = ((h<<5)+h+s.charCodeAt(i))|0; return 'k'+(h>>>0).toString(36); };
+const ls = {
+  get(k){ try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
+  set(k,v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+};
+
+function semester(){
+  const t = todayStr(), y = +t.slice(0,4), m = +t.slice(5,7);
+  if (m >= 8) return { from: `${y}-09-01`, to: `${y+1}-01-31` };
+  if (m === 1) return { from: `${y-1}-09-01`, to: `${y}-01-31` };
+  return { from: `${y}-02-01`, to: `${y}-07-31` };
+}
+const SEM = semester();
+
+// ================= Хранилище (Firebase или локальный режим) =================
+const DEL = { __delete: true };
+function applyPatch(obj, patch){
+  for (const [path, val] of Object.entries(patch)){
+    const parts = path.split('.'); let o = obj;
+    for (let i = 0; i < parts.length-1; i++){ if (!o[parts[i]] || typeof o[parts[i]] !== 'object') o[parts[i]] = {}; o = o[parts[i]]; }
+    if (val === DEL) delete o[parts.at(-1)]; else o[parts.at(-1)] = val;
+  }
+  return obj;
+}
+const LOCAL = /^(file|data):$/.test(location.protocol) || new URLSearchParams(location.search).has('local');
+
+function localBackend(){
+  let data = ls.get('local-profile') || {}, cb;
+  const user = { uid: 'local', displayName: 'Локальный режим', email: 'данные только в этом браузере' };
+  return {
+    local: true,
+    async signIn(){}, async signOut(){ data = {}; ls.set('local-profile', data); cb && cb({}); },
+    onUser(f){ setTimeout(() => f(user)); },
+    watch(uid, f){ cb = f; setTimeout(() => f(structuredClone(data))); return () => {}; },
+    async update(patch){ applyPatch(data, patch); ls.set('local-profile', data); cb && cb(structuredClone(data)); }
+  };
+}
+async function firebaseBackend(){
+  const base = `https://www.gstatic.com/firebasejs/${FB_VER}/`;
+  const [{ initializeApp }, A, F] = await Promise.all([
+    import(base + 'firebase-app.js'), import(base + 'firebase-auth.js'), import(base + 'firebase-firestore.js')
+  ]);
+  const fapp = initializeApp(FIREBASE);
+  const auth = A.getAuth(fapp);
+  let db;
+  try { db = F.initializeFirestore(fapp, { localCache: F.persistentLocalCache({ tabManager: F.persistentMultipleTabManager() }) }); }
+  catch { db = F.getFirestore(fapp); }
+  let ref;
+  return {
+    async signIn(){ const p = new A.GoogleAuthProvider(); p.setCustomParameters({ prompt: 'select_account' }); await A.signInWithPopup(auth, p); },
+    signOut: () => A.signOut(auth),
+    onUser: f => A.onAuthStateChanged(auth, f),
+    watch(uid, f){
+      ref = F.doc(db, 'users', uid);
+      return F.onSnapshot(ref, s => f(s.exists() ? s.data() : {}), e => { console.error(e); setStatus('err', 'нет доступа к базе (' + e.code + ')'); });
+    },
+    async update(patch){
+      const p = {}; for (const [k,v] of Object.entries(patch)) p[k] = v === DEL ? F.deleteField() : v;
+      try { await F.updateDoc(ref, p); }
+      catch (e) { if (e.code === 'not-found') await F.setDoc(ref, applyPatch({}, patch), { merge: true }); else throw e; }
+    }
+  };
+}
+
+// ================= СПбГУ =================
+async function getJSON(url, ms = 25000){
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), ms);
+  try {
+    const r = await fetch(url, { cache: 'no-store', signal: ctl.signal });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return await r.json();
+  } catch (e) {
+    throw e.name === 'AbortError' ? new Error('сайт СПбГУ не отвечает') : e;
+  } finally { clearTimeout(timer); }
+}
+// Источник 1 — API (одним запросом весь семестр). Источник 2 — обычные страницы сайта по неделям,
+// если API не отвечает. Оба приводятся к одному формату.
+let lastSource = 'api', apiDownUntil = 0;
+async function fetchGroup(id){
+  if (Date.now() > apiDownUntil) {
+    try { const j = await getJSON(`${API}/groups/${id}/events/${SEM.from}/${addDays(SEM.to, 1)}`, 8000); lastSource = 'api'; return j; }
+    catch (e) { apiDownUntil = Date.now() + 10 * 60 * 1000; }   // API лежит — 10 минут не ждём его
+  }
+  const j = await fetchGroupHtml(id); lastSource = 'html'; return j;
+}
+let prefetched = null;   // расписание, загруженное при выборе группы, чтобы не качать второй раз
+const WD = ['понедельник','вторник','среда','четверг','пятница','суббота','воскресенье'];
+async function fetchWeekHtml(id, monday){
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 20000);
+  try {
+    const r = await fetch(`https://timetable.spbu.ru/ECON/StudentGroupEvents/Primary/${id}/${monday}`, { headers: { 'Accept-Language': 'ru-RU,ru;q=0.9' }, cache: 'no-store', signal: ctl.signal });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return new DOMParser().parseFromString(await r.text(), 'text/html');
+  } catch (e) { throw e.name === 'AbortError' ? new Error('сайт СПбГУ не отвечает') : e; }
+  finally { clearTimeout(timer); }
+}
+async function fetchGroupHtml(id){
+  const weeks = [];
+  for (let m = mondayOf(SEM.from); m <= SEM.to; m = addDays(m, 7)) weeks.push(m);
+  const days = [], txt = el => (el ? el.textContent : '').replace(/\s+/g, ' ').trim();
+  let name = '', i = 0, failed = 0;
+  async function worker(){
+    while (i < weeks.length) {
+      const monday = weeks[i++];
+      let doc;
+      try { doc = await fetchWeekHtml(id, monday); } catch (e) { failed++; if (failed > 3) throw e; continue; }
+      if (!name) { const h = [...doc.querySelectorAll('h1,h2,h3')].map(txt).find(t => /^Группа\s/.test(t)); if (h) name = h.replace(/^Группа\s*/, ''); }
+      doc.querySelectorAll('.panel').forEach(p => {
+        const head = txt(p.querySelector('.panel-title')).toLowerCase();
+        const off = WD.findIndex(w => head.startsWith(w));
+        if (off < 0) return;
+        const date = addDays(monday, off), evs = [];
+        p.querySelectorAll('li.common-list-item').forEach(li => {
+          const tm = txt(li.querySelector('.studyevent-datetime')).match(/(\d{1,2}:\d{2})\D+(\d{1,2}:\d{2})/);
+          if (!tm) return;
+          const locs = [...li.querySelectorAll('.studyevent-locations .address-modal-btn')];
+          const geo = locs.map(l => ({ lat: parseFloat((l.dataset.lat || '').replace(',', '.')), lng: parseFloat((l.dataset.lng || '').replace(',', '.')) })).filter(g => g.lat && g.lng);
+          evs.push({
+            Start: `${date}T${tm[1].padStart(5, '0')}:00`, End: `${date}T${tm[2].padStart(5, '0')}:00`,
+            Subject: txt(li.querySelector('.studyevent-subject')),
+            LocationsDisplayText: locs.length ? locs.map(l => l.dataset.address || txt(l)).join('; ') : txt(li.querySelector('.studyevent-locations')),
+            EducatorsDisplayText: [...li.querySelectorAll('.studyevent-educators a')].map(txt).join(', ') || txt(li.querySelector('.studyevent-educators')),
+            IsCancelled: !!li.querySelector('.cancelled'),
+            EventLocations: geo.map(g => ({ HasGeographicCoordinates: true, Latitude: g.lat, Longitude: g.lng }))
+          });
+        });
+        if (evs.length) days.push({ Day: date, DayStudyEvents: evs });
+      });
+    }
+  }
+  await Promise.all([worker(), worker(), worker(), worker()]);
+  if (!days.length && failed) throw new Error('сайт СПбГУ не отвечает');
+  return { StudentGroupDisplayName: name, Days: days.sort((a,b) => a.Day.localeCompare(b.Day)) };
+}
+const groupName = j => (j.StudentGroupDisplayName || '').replace(/^(Student group|Студенческая группа|Группа)\s*/i, '').trim();
+const cleanTeacher = s => (s||'').replace(/,\s*(старший научный сотрудник|ведущий научный сотрудник|научный сотрудник|старший преподаватель|преподаватель|доцент|профессор|ассистент|заведующий кафедрой)/gi, '').trim();
+
+function parseEvents(json){
+  const out = [], seen = new Set();
+  for (const d of json.Days || []) for (const e of d.DayStudyEvents || []) {
+    const i = e.Subject.lastIndexOf(', ');
+    const full = i > 0 ? e.Subject.slice(0, i) : e.Subject;
+    const type = i > 0 ? e.Subject.slice(i + 2) : '';
+    const optional = /^(Электив|Факультатив)/i.test(full) || !!e.IsElective;
+    const name = full.replace(/^(Электив|Факультатив)\.\s*/i, '');
+    let loc = e.LocationsDisplayText || '';
+    const online = /информационно-коммуникационных/i.test(loc);
+    if (online) loc = 'Онлайн';
+    const geo = (e.EventLocations || []).find(l => l.HasGeographicCoordinates);
+    const teacher = cleanTeacher(e.EducatorsDisplayText);
+    const ev = {
+      start: e.Start, end: e.End, full, name, type, optional, teacher, loc, online,
+      geo: geo ? [geo.Latitude, geo.Longitude] : null,
+      cancelled: !!e.IsCancelled, siteCancelled: !!e.IsCancelled,
+      timeCh: e.TimeWasChanged, locCh: e.LocationsWereChanged, eduCh: e.EducatorsWereReassigned,
+      sk: hash(full)
+    };
+    ev.id = [ev.start, full, type, teacher].join('|');
+    ev.ok = hash(ev.id);
+    const key = ev.id + '|' + loc;
+    if (seen.has(key)) continue;
+    seen.add(key); out.push(ev);
+  }
+  return out.sort((a,b) => a.start.localeCompare(b.start));
+}
+
+// Что спрашивать: элективы/факультативы и предметы с параллельными парами у разных преподавателей
+function analyze(all){
+  const subj = new Map(), slots = new Map();
+  for (const e of all){
+    if (!subj.has(e.sk)) subj.set(e.sk, { sk: e.sk, name: e.name, optional: e.optional, count: 0, teachers: new Map(), parallel: new Set() });
+    const s = subj.get(e.sk); s.count++;
+    s.teachers.set(e.teacher, (s.teachers.get(e.teacher) || 0) + 1);
+    const k = e.sk + '|' + e.start;
+    if (!slots.has(k)) slots.set(k, new Set());
+    slots.get(k).add(e.teacher);
+  }
+  const parSlots = new Set();
+  for (const [k, set] of slots) if (set.size > 1) {
+    parSlots.add(k);
+    const s = subj.get(k.split('|')[0]);
+    set.forEach(t => t && s.parallel.add(t));
+  }
+  const questions = [...subj.values()].filter(s => s.optional || s.parallel.size > 1)
+    .sort((a,b) => (a.optional - b.optional) || a.name.localeCompare(b.name, 'ru'));
+  return { subj, parSlots, questions };
+}
+
+function applyOv(e, o){
+  if (!o) return e;
+  const c = { ...e, ov: o };
+  if (o.online) { c.online = true; c.loc = 'Онлайн'; c.geo = null; }
+  if (o.cancelled) c.cancelled = true;
+  return c;
+}
+function filterMine(all, an, p){
+  const opt = p.opt || {}, teach = p.teach || {}, ov = p.ov || {};
+  const slotHas = new Set();
+  for (const e of all){
+    const t = teach[e.sk], k = e.sk + '|' + e.start;
+    if (t && an.parSlots.has(k) && e.teacher.includes(t)) slotHas.add(k);
+  }
+  return all.filter(e => {
+    if (e.optional && opt[e.sk] === false) return false;
+    const t = teach[e.sk], k = e.sk + '|' + e.start;
+    if (t && slotHas.has(k) && !e.teacher.includes(t)) return false;
+    return true;
+  }).map(e => applyOv(e, ov[e.ok]));
+}
+
+function kindOf(type){
+  const t = (type||'').toLowerCase();
+  if (/зач|экзам|контрол/.test(t)) return 'var(--exam)';
+  if (t.includes('лекц')) return 'var(--lec)';
+  if (t.includes('семинар')) return 'var(--sem)';
+  if (t.includes('практ')) return 'var(--prac)';
+  return 'var(--other)';
+}
+function ctrlKind(type){
+  const t = (type||'').toLowerCase();
+  if (/зач[её]т|экзам/.test(t)) return 'zach';
+  if (/контрол/.test(t)) return 'kr';
+  return null;
+}
+const isRetake = t => /пересдач/i.test(t||'');
+const isLesson = t => /лекц|семинар|практ|сам\. работа|лаборатор/i.test(t||'');
+
+// ================= Состояние =================
+let backend, user = null, profile = null, unwatch = null;
+let all = [], an = null, events = [], loadedGid = null, groupError = null;
+let view = null;          // 'login' | 'group' | 'choices' | 'main'
+let forced = null;        // 'group' | 'choices' — когда пользователь сам открыл настройки
+let filter = 'upcoming', showDone = false, editingOv = null, changed = new Set(), baseline;
+
+function setStatus(kind, text){ const d = $('dot'), s = $('st'); if (d) d.className = 'dot ' + kind; if (s) s.textContent = text; }
+
+// ================= Загрузка расписания =================
+async function loadGroup(gid, force){
+  if (loadedGid === gid && !force) return;
+  if (loadedGid !== gid) {
+    loadedGid = gid; baseline = undefined;
+    const c = ls.get('tt-' + gid);
+    all = c ? c.all : []; an = analyze(all);
+    groupError = null;
+    route();
+  }
+  setStatus('load', 'обновляю…');
+  try {
+    const pre = prefetched && prefetched.id === gid && Date.now() - prefetched.t < 5 * 60 * 1000 && !force ? prefetched : null;
+    prefetched = null;
+    const list = pre ? pre.list : parseEvents(await fetchGroup(gid));
+    if (loadedGid !== gid) return;
+    all = list; an = analyze(all);
+    ls.set('tt-' + gid, { t: Date.now(), all });
+    detectChanges(gid);
+    groupError = null;
+    setStatus('ok', 'обновлено ' + fmtTime(Date.now()) + ((pre ? pre.src : lastSource) === 'html' ? ' · со страниц сайта' : ''));
+  } catch (e) {
+    const c = ls.get('tt-' + gid);
+    groupError = all.length ? null : e.message;
+    setStatus('err', (c ? 'офлайн, данные от ' + fmtTime(c.t) : 'не удалось загрузить') + ' (' + e.message + ')');
+  }
+  route();
+}
+function detectChanges(gid){
+  const key = 'seen-' + (user ? user.uid : '') + '-' + gid;
+  if (baseline === undefined) baseline = ls.get(key);
+  const now = {};
+  all.forEach(e => now[e.ok] = [e.loc, e.teacher, e.siteCancelled, e.end].join('|'));
+  changed = new Set();
+  if (baseline) for (const [id, sig] of Object.entries(now)) if (baseline[id] !== sig) changed.add(id);
+  ls.set(key, now);
+}
+
+// ================= Маршрутизация =================
+function route(){
+  if (!user) return showLogin();
+  if (!profile) { app.innerHTML = '<div class="empty">Загружаю профиль…</div>'; view = null; return; }
+  if (!profile.group || forced === 'group') return showGroup();
+  if (loadedGid !== profile.group.id) loadGroup(profile.group.id);
+  if (!profile.known || forced === 'choices') {
+    if (!all.length) { app.innerHTML = `<div class="empty">${groupError ? 'Не удалось загрузить расписание: ' + esc(groupError) : 'Загружаю расписание группы…'}</div>`; view = null; return; }
+    return showChoices();
+  }
+  events = filterMine(all, an, profile);
+  showMain();
+}
+
+// ================= Экран входа =================
+function showLogin(){
+  view = 'login';
+  app.innerHTML = `<div class="hero">
+    <h1>Мои пары</h1>
+    <p>Расписание СПбГУ только с твоими парами, домашка, зачёты и КР. Всё сохраняется в аккаунте и одинаково на телефоне и компьютере.</p>
+    <button class="primary big" id="login">Войти через Google</button>
+    <div class="err" id="loginErr"></div>
+  </div>`;
+  $('login').onclick = async () => {
+    $('loginErr').textContent = '';
+    try { await backend.signIn(); }
+    catch (e) {
+      $('loginErr').textContent = e.code === 'auth/popup-blocked' ? 'Браузер заблокировал окно входа — разреши всплывающие окна для этого сайта.'
+        : e.code === 'auth/popup-closed-by-user' ? '' : 'Не получилось войти: ' + (e.code || e.message);
+    }
+  };
+}
+
+// ================= Шаг 1: группа =================
+function parseGroupInput(s){
+  s = s.trim();
+  const m = s.match(/StudentGroupEvents\/(?:[A-Za-z]+\/)?(\d{4,})/) || s.match(/groups\/(\d{4,})/) || s.match(/^(\d{4,})$/);
+  return m ? m[1] : null;
+}
+function showGroup(){
+  view = 'group';
+  const cur = profile.group;
+  app.innerHTML = `
+    <header><div><h1>${cur ? 'Сменить группу' : 'Привет!'}</h1><div class="sub">${esc(user.displayName || '')}</div></div>
+      ${cur ? '<button id="back">Отмена</button>' : ''}</header>
+    <section class="panel">
+      <div class="step">Шаг 1 из 2 · группа</div>
+      <h2>Какая у тебя группа?</h2>
+      <p class="sm">Начни вводить номер, например <b>26.М01-э</b>, и выбери группу из списка.</p>
+      <div class="ac">
+        <input id="gIn" placeholder="26.М01-э" autocomplete="off" autocapitalize="off" spellcheck="false" value="${cur ? esc(cur.name) : ''}">
+        <div class="sugg" id="sugg" hidden></div>
+      </div>
+      <div id="gRes"></div>
+      <p class="sm" style="margin-top:14px">Можно вставить и ссылку на расписание группы с timetable.spbu.ru.</p>
+    </section>`;
+  if (cur) $('back').onclick = () => { forced = null; route(); };
+  initGroupSearch();
+}
+
+// ---- Поиск группы по названию ----
+// Латинские буквы, похожие на кириллицу, приводим к кириллице, чтобы «26.M01-e» тоже находилось
+const LAT = { a:'а', b:'в', c:'с', e:'е', h:'н', k:'к', m:'м', o:'о', p:'р', t:'т', x:'х', y:'у' };
+const norm = s => s.toLowerCase().replace(/ё/g, 'е').replace(/[a-z]/g, ch => LAT[ch] || ch).replace(/[\s_]/g, '');
+let groupIndex = null;
+async function loadGroupIndex(){
+  if (groupIndex) return groupIndex;
+  try {
+    const r = await fetch('groups.json', { cache: 'no-cache' });
+    const j = r.ok ? await r.json() : { g: [] };
+    groupIndex = j.g.map(([n, a, pid, p, l, y, id]) => ({ n, a, pid, y, id, d: j.div[a], p: j.prog[p], l: j.lvl[l], k: norm(n) }));
+  } catch { groupIndex = []; }
+  return groupIndex;
+}
+async function fetchText(path, ms = 20000){
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), ms);
+  try {
+    const r = await fetch('https://timetable.spbu.ru' + path, { headers: { 'Accept-Language': 'ru-RU,ru;q=0.9' }, cache: 'no-store', signal: ctl.signal });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return await r.text();
+  } finally { clearTimeout(timer); }
+}
+// Если группы нет в справочнике (например, новая) — ищем прямо на сайте СПбГУ
+async function liveFindGroup(name){
+  const want = norm(name);
+  const home = new DOMParser().parseFromString(await fetchText('/'), 'text/html');
+  const aliases = [...new Set([...home.querySelectorAll('a[href]')].map(a => (a.getAttribute('href').match(/^\/([A-Za-z]+)$/) || [])[1]).filter(Boolean))];
+  let found = null;
+  await Promise.all(aliases.map(async a => {
+    try {
+      const doc = new DOMParser().parseFromString(await fetchText('/' + a), 'text/html');
+      for (const link of doc.querySelectorAll('a[href*="/StudyProgram/"][title]')) {
+        if (link.title.split(',').some(t => norm(t) === want)) { found = found || link.getAttribute('href'); }
+      }
+    } catch {}
+  }));
+  if (!found) return null;
+  const id = await resolveGroupId(found, name);
+  return id ? { n: name.trim(), id } : null;
+}
+// Внутренний номер группы берём со страницы её образовательной программы
+async function resolveGroupId(programPath, name){
+  const want = norm(name);
+  const prog = new DOMParser().parseFromString(await fetchText(programPath, 60000), 'text/html');
+  for (const tile of prog.querySelectorAll('[onclick*="StudentGroupEvents"]')) {
+    const id = (tile.getAttribute('onclick').match(/Primary\/(\d+)/) || [])[1];
+    const n = (tile.querySelector('.col-sm-4') || tile).textContent.trim();
+    if (id && norm(n) === want) return +id;
+  }
+  return null;
+}
+function initGroupSearch(){
+  const inp = $('gIn'), box = $('sugg');
+  let items = [], active = -1, liveTimer = null;
+  loadGroupIndex();
+  const pick = async g => {
+    box.hidden = true; inp.value = g.n;
+    if (g.id) return checkGroup(String(g.id));
+    $('gRes').innerHTML = '<div class="found"><span>Открываю группу… <span class="sm" id="slowHint"></span></span></div>';
+    const hint = setTimeout(() => { const h = $('slowHint'); if (h) h.textContent = 'сайт СПбГУ сейчас отвечает медленно, подожди до минуты'; }, 5000);
+    try {
+      const id = await resolveGroupId(`/${g.a}/StudyProgram/${g.pid}`, g.n);
+      if (id) { g.id = id; checkGroup(String(id)); }
+      else $('gRes').innerHTML = '<div class="err">Группа есть в списке, но её расписание на сайте СПбГУ сейчас не найдено.</div>';
+    } catch { $('gRes').innerHTML = '<div class="err">Сайт СПбГУ не отвечает, попробуй чуть позже.</div>'; }
+    finally { clearTimeout(hint); }
+  };
+  const draw = () => {
+    box.innerHTML = items.map((g, i) => `<button type="button" class="si${i === active ? ' act' : ''}" data-i="${i}"><b>${esc(g.n)}</b><span>${esc([g.d, g.l, g.p].filter(Boolean).join(' · '))}</span></button>`).join('');
+    box.hidden = !items.length;
+  };
+  box.onmousedown = e => e.preventDefault();
+  box.onclick = e => { const b = e.target.closest('[data-i]'); if (b) pick(items[+b.dataset.i]); };
+  inp.oninput = async () => {
+    clearTimeout(liveTimer);
+    const raw = inp.value.trim(), q = norm(raw);
+    $('gRes').innerHTML = '';
+    const id = parseGroupInput(raw);
+    if (id && /\/|^\d{5,}$/.test(raw)) { items = []; draw(); checkGroup(id); return; }
+    if (q.length < 2) { items = []; draw(); return; }
+    const idx = await loadGroupIndex();
+    if (norm(inp.value.trim()) !== q) return;            // пока грузили, пользователь ввёл другое
+    items = idx.filter(g => g.k.startsWith(q)).concat(idx.filter(g => !g.k.startsWith(q) && g.k.includes(q))).slice(0, 8);
+    active = items.length ? 0 : -1; draw();
+    // точное название, которого нет в справочнике → ищем на сайте
+    if (!items.some(g => g.k === q) && /^\d{2}\.[^\s]{2,}-[^\s]+$/.test(raw)) {
+      liveTimer = setTimeout(async () => {
+        $('gRes').innerHTML = '<div class="found"><span>Ищу группу на сайте СПбГУ…</span></div>';
+        try {
+          const g = await liveFindGroup(raw);
+          if (norm(inp.value.trim()) !== q) return;
+          if (g) { items = [g]; active = 0; draw(); $('gRes').innerHTML = ''; }
+          else $('gRes').innerHTML = '<div class="err">Не нашёл такую группу. Проверь номер — он написан вверху страницы расписания группы.</div>';
+        } catch { $('gRes').innerHTML = '<div class="err">Сайт СПбГУ не отвечает, попробуй чуть позже.</div>'; }
+      }, 700);
+    }
+  };
+  inp.onkeydown = e => {
+    if (box.hidden) { if (e.key === 'Enter') inp.oninput(); return; }
+    if (e.key === 'ArrowDown') { active = Math.min(items.length - 1, active + 1); draw(); e.preventDefault(); }
+    else if (e.key === 'ArrowUp') { active = Math.max(0, active - 1); draw(); e.preventDefault(); }
+    else if (e.key === 'Enter' && items[active]) { pick(items[active]); e.preventDefault(); }
+    else if (e.key === 'Escape') box.hidden = true;
+  };
+  inp.onfocus = () => { if (items.length) box.hidden = false; };
+  inp.onblur = () => setTimeout(() => box.hidden = true, 150);
+  if (!profile.group) inp.focus();
+}
+async function checkGroup(id){
+  $('gRes').innerHTML = '<div class="found"><span>Загружаю расписание группы… <span class="sm" id="slowHint2"></span></span></div>';
+  setTimeout(() => { const h = $('slowHint2'); if (h) h.textContent = 'сайт СПбГУ сейчас медленный, это может занять до минуты'; }, 6000);
+  try {
+    const j = await fetchGroup(id), list = parseEvents(j);
+    prefetched = { id, list, t: Date.now(), src: lastSource };
+    const n = list.length, name = groupName(j) || ('№ ' + id);
+    $('gRes').innerHTML = `<div class="found"><div><b>${esc(name)}</b><div class="sm">${n ? plural(n,'занятие','занятия','занятий') + ' в этом семестре' : 'в этом семестре занятий пока нет'}</div></div>
+      <button class="primary" id="gOk">Это моя группа →</button></div>`;
+    $('gOk').onclick = async () => {
+      $('gOk').disabled = true;
+      const same = profile.group && profile.group.id === id;
+      const patch = { group: { id, name } };
+      if (!same) { patch.opt = {}; patch.teach = {}; patch.known = DEL; }
+      forced = same ? null : null;
+      await backend.update(patch);
+      if (!same) { loadedGid = null; all = []; }
+      forced = null; route();
+    };
+  } catch (e) {
+    $('gRes').innerHTML = `<div class="err">Группа не найдена или сайт СПбГУ не отвечает (${esc(e.message)}).</div>`;
+  }
+}
+
+// ================= Шаг 2: элективы и преподаватели =================
+function showChoices(){
+  view = 'choices';
+  const qs = an.questions, opt = profile.opt || {}, teach = profile.teach || {};
+  const fresh = !profile.known;
+  app.innerHTML = `
+    <header><div><h1>Мои предметы</h1><div class="sub">${esc(profile.group.name)}</div></div>
+      ${fresh ? '' : '<button id="back">Отмена</button>'}</header>
+    <section class="panel">
+      <div class="step">Шаг 2 из 2 · выбор</div>
+      ${qs.length ? `<h2>Отметь, какие из этих занятий твои</h2>
+        <p class="sm">Остальные предметы группы общие и будут показаны всегда.</p>
+        <div id="qList">${qs.map(q => {
+          const isOn = q.optional ? opt[q.sk] === true : true;
+          const tch = [...q.parallel].sort((a,b) => a.localeCompare(b,'ru'));
+          return `<div class="q${isOn ? '' : ' off'}" data-sk="${q.sk}">
+            <div class="qh"><b>${esc(q.name)}</b>${q.optional ? '<span class="tag">электив / факультатив</span>' : ''}${tch.length > 1 ? '<span class="tag par">несколько преподавателей</span>' : ''}</div>
+            ${q.optional ? `<label class="sw"><input type="checkbox" data-opt ${isOn ? 'checked' : ''}> Это мой предмет</label>` : ''}
+            ${tch.length > 1 ? `<div class="tl"><div class="sm">Какой преподаватель твой?</div>
+              ${tch.map(t => `<label><input type="radio" name="t-${q.sk}" value="${esc(t)}" ${teach[q.sk] === t ? 'checked' : ''}> ${esc(t)} <span class="cnt">· ${pluralPair(q.teachers.get(t) || 0)}</span></label>`).join('')}
+              <label><input type="radio" name="t-${q.sk}" value="" ${!teach[q.sk] ? 'checked' : ''}> Не знаю — показывать всех</label></div>` : ''}
+          </div>`;
+        }).join('')}</div>`
+      : '<h2>Выбирать нечего</h2><p class="sm">В расписании группы нет элективов и параллельных пар — показываю всё.</p>'}
+      <div class="actions">
+        <button class="ghost" id="chGroup">Сменить группу</button>
+        <button class="primary big" id="chSave">Сохранить и открыть расписание</button>
+      </div>
+    </section>`;
+  if (!fresh) $('back').onclick = () => { forced = null; route(); };
+  app.querySelectorAll('[data-opt]').forEach(cb => cb.onchange = () => cb.closest('.q').classList.toggle('off', !cb.checked));
+  $('chGroup').onclick = () => { forced = 'group'; route(); };
+  $('chSave').onclick = async () => {
+    $('chSave').disabled = true;
+    const o = {}, t = {}, known = {};
+    app.querySelectorAll('.q').forEach(div => {
+      const sk = div.dataset.sk; known[sk] = true;
+      const cb = div.querySelector('[data-opt]');
+      if (cb) o[sk] = cb.checked;
+      const r = div.querySelector('input[type=radio]:checked');
+      if (r && r.value) t[sk] = r.value;
+    });
+    await backend.update({ opt: o, teach: t, known });
+    forced = null; route();
+  };
+}
+
+// ================= Главный экран =================
+function showMain(){
+  if (view !== 'main' || !$('list')) buildMain();
+  renderBanner(); renderHw(); renderNext(); renderStats(); renderSummary(); renderList();
+}
+function buildMain(){
+  view = 'main';
+  const ava = user.photoURL ? `<img src="${esc(user.photoURL)}" alt="" referrerpolicy="no-referrer">` : esc((user.displayName || '?')[0]);
+  app.innerHTML = `
+  <header>
+    <div><h1>Мои пары</h1><div class="sub">${esc(profile.group.name)} · до ${fmtLong(SEM.to)}</div></div>
+    <div class="hdr-r">
+      <div class="status"><span class="dot" id="dot"></span><span id="st"></span><button id="refresh" title="Обновить">↻</button></div>
+      <button class="avatar" id="menuBtn" title="Меню">${ava}</button>
+      <div class="menu" id="menu" hidden>
+        <div class="who"><b>${esc(user.displayName || '')}</b><span class="sm">${esc(user.email || '')}</span></div>
+        <button data-act="choices">Мои предметы (элективы, преподаватели)</button>
+        <button data-act="group">Сменить группу</button>
+        <button data-act="logout">Выйти</button>
+      </div>
+    </div>
+  </header>
+  <div id="banner"></div>
+  <div id="next"></div>
+  <section class="panel">
+    <div class="panel-h"><h2>Домашка</h2><span class="cnt" id="hwcnt"></span></div>
+    <div id="hwlist"></div>
+    <button class="muted-link" id="toggleDone"></button>
+    <form class="add" id="addForm" autocomplete="off">
+      <input name="text" placeholder="Что сделать (доклад, задачи, прочитать…)" required>
+      <select name="subject" id="subjSel"></select>
+      <input type="date" name="due" required>
+      <label><input type="checkbox" name="test" style="width:auto"> тест/КР</label>
+      <button class="primary" type="submit">Добавить</button>
+    </form>
+  </section>
+  <div class="stats" id="stats"></div>
+  <details class="panel sum" id="sumBox">
+    <summary><h2>Сводка по предметам</h2><span class="cnt">сколько учебных дней осталось</span></summary>
+    <div id="sumList"></div>
+  </details>
+  <div class="bar" id="bar">
+    <button data-f="upcoming">Предстоящие</button>
+    <button data-f="week">Эта неделя</button>
+    <button data-f="zach">Зачёты</button>
+    <button data-f="kr">КР и тесты</button>
+    <button data-f="all">Весь семестр</button>
+  </div>
+  <div id="list"></div>
+  <footer>Данные: <a href="https://timetable.spbu.ru/StudentGroupEvents/Primary/${esc(profile.group.id)}" target="_blank" rel="noopener">timetable.spbu.ru</a> · обновляются при открытии и каждые 30 минут · «⋯» у пары — своя пометка (онлайн, отмена, заметка)</footer>`;
+  const c = ls.get('tt-' + profile.group.id);
+  if (groupError) setStatus('err', (c ? 'офлайн, данные от ' + fmtTime(c.t) : 'не удалось загрузить') + ' (' + groupError + ')');
+  else if (c) setStatus('ok', 'обновлено ' + fmtTime(c.t));
+  $('refresh').onclick = () => loadGroup(profile.group.id, true);
+  $('menuBtn').onclick = e => { e.stopPropagation(); $('menu').hidden = !$('menu').hidden; };
+  $('menu').onclick = async e => {
+    const a = e.target.dataset.act; if (!a) return;
+    $('menu').hidden = true;
+    if (a === 'logout') { await backend.signOut(); return; }
+    forced = a; route();
+  };
+  $('bar').querySelectorAll('button').forEach(b => {
+    b.classList.toggle('on', b.dataset.f === filter);
+    b.onclick = () => {
+      filter = b.dataset.f;
+      $('bar').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+      renderList();
+      if (filter === 'all') document.getElementById('today')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+  });
+  $('toggleDone').onclick = () => { showDone = !showDone; renderHw(); };
+  $('subjSel').onchange = e => {
+    const nx = events.find(ev => ev.name === e.target.value && ymd(ev.start) > todayStr() && !ev.cancelled && isLesson(ev.type));
+    if (nx) $('addForm').due.value = ymd(nx.start);
+  };
+  $('addForm').onsubmit = async e => {
+    e.preventDefault();
+    const f = e.target, id = 'h' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+    await backend.update({ ['hw.' + id]: { due: f.due.value, subject: f.subject.value || 'Без предмета', text: f.text.value.trim(), test: f.test.checked, done: false, created: Date.now() } });
+    f.reset();
+  };
+}
+
+function renderBanner(){
+  const fresh = an.questions.filter(q => !(profile.known || {})[q.sk]);
+  $('banner').innerHTML = fresh.length ? `<div class="banner"><span>В расписании появились новые элективы или преподаватели (${fresh.length}). Сейчас они показаны.</span><button class="primary" id="bnGo">Выбрать</button></div>` : '';
+  if (fresh.length) $('bnGo').onclick = () => { forced = 'choices'; route(); };
+}
+
+// ---- Домашка ----
+const allHw = () => Object.entries(profile.hw || {}).map(([id, h]) => ({ id, ...h }))
+  .sort((a,b) => a.due.localeCompare(b.due) || (a.created||0) - (b.created||0));
+function dueLabel(due){
+  const diff = Math.round((new Date(due+'T12:00') - new Date(todayStr()+'T12:00')) / 864e5);
+  if (diff < 0) return ['просрочено', 'late'];
+  if (diff === 0) return ['сегодня', 'late'];
+  if (diff === 1) return ['завтра', 'soon'];
+  if (diff <= 3) return [`через ${diff} дн.`, 'soon'];
+  return [fmtShort(due), ''];
+}
+function hwItem(h, compact){
+  const [lbl, cls] = dueLabel(h.due);
+  return `<div class="hw${h.done ? ' done' : ''}">
+    <input type="checkbox" data-hw="${esc(h.id)}" ${h.done ? 'checked' : ''} title="Сделано">
+    <div class="body"><div class="txt">${h.test ? '<span class="hw-test">тест</span>' : ''}${esc(h.text)}${compact ? ' · <span class="sm">' + esc(h.subject.replace(/ - продвинутый уровень/, '')) + '</span>' : ''}</div>
+    ${compact ? '' : `<div class="sm">${esc(h.subject)}</div>`}</div>
+    ${compact || h.done ? '' : `<span class="due ${cls}">${lbl}</span>`}
+    <button class="x" data-del="${esc(h.id)}" title="Удалить">×</button></div>`;
+}
+function renderHw(){
+  const list = allHw(), open = list.filter(h => !h.done), done = list.filter(h => h.done);
+  const shown = showDone ? list : open;
+  $('hwlist').innerHTML = shown.length ? shown.map(h => hwItem(h)).join('') : `<div class="sm">${list.length ? 'Всё сделано 🎉' : 'Заданий пока нет — добавь первое ниже.'}</div>`;
+  $('hwcnt').textContent = open.length ? `${open.length} открыто` : '';
+  $('toggleDone').textContent = done.length ? (showDone ? 'скрыть сделанное' : `показать сделанное (${done.length})`) : '';
+  $('toggleDone').style.display = done.length ? '' : 'none';
+  const sel = $('subjSel'), cur = sel.value;
+  const names = [...new Set(events.map(e => e.name))].sort((a,b) => a.localeCompare(b,'ru'));
+  sel.innerHTML = '<option value="">Предмет…</option>' + names.map(n => `<option>${esc(n)}</option>`).join('');
+  if (names.includes(cur)) sel.value = cur;
+}
+
+// ---- Следующая пара ----
+function renderNext(){
+  const now = new Date(), live = events.filter(e => !e.cancelled);
+  const cur = live.find(e => dt(e.start) <= now && dt(e.end) > now);
+  const nxt = live.find(e => dt(e.start) > now);
+  const show = cur || nxt;
+  if (!show) { $('next').innerHTML = ''; return; }
+  let cd;
+  if (cur) cd = `идёт сейчас · ещё ${Math.ceil((dt(cur.end) - now) / 60000)} мин`;
+  else {
+    const ms = dt(nxt.start) - now, h = Math.floor(ms / 36e5), d = Math.floor(h / 24);
+    cd = d >= 1 ? `через ${d} дн. ${h % 24} ч` : h >= 1 ? `через ${h} ч ${Math.floor(ms / 6e4) % 60} мин` : `через ${Math.ceil(ms / 6e4)} мин`;
+  }
+  $('next').innerHTML = `<div class="next"><div class="lbl">${cur ? 'Сейчас' : 'Следующая пара'}</div>
+    <div class="t">${esc(show.name)}</div>
+    <div class="m">${esc(fmtDay(show.start))}, ${hm(show.start)}–${hm(show.end)} · ${esc(show.type)}<br>${esc(show.loc)}${show.teacher ? ' · ' + esc(show.teacher) : ''}${show.ov && show.ov.note ? '<br>📝 ' + esc(show.ov.note) : ''}</div>
+    <span class="cd">${cd}</span></div>`;
+}
+
+// ---- Счётчики ----
+function renderStats(){
+  const now = new Date(), today = todayStr(), live = events.filter(e => !e.cancelled);
+  const mon = mondayOf(today), sun = addDays(mon, 6);
+  const ahead = live.filter(e => dt(e.start) > now);
+  const hw = allHw();
+  const inWeek = live.filter(e => ymd(e.start) >= mon && ymd(e.start) <= sun).length;
+  const zach = ahead.filter(e => ctrlKind(e.type) === 'zach' && !isRetake(e.type)).length;
+  const kr = ahead.filter(e => ctrlKind(e.type) === 'kr').length + hw.filter(h => h.test && !h.done && h.due >= today).length;
+  $('stats').innerHTML = `<div class="stat"><b>${inWeek}</b><span>пар на этой неделе</span></div>
+    <div class="stat"><b>${ahead.length}</b><span>пар до ${fmtShort(SEM.to)}</span></div>
+    <div class="stat exam"><b>${zach}</b><span>зачётов впереди</span></div>
+    <div class="stat exam"><b>${kr}</b><span>КР и тестов впереди</span></div>
+    <div class="stat"><b>${hw.filter(h => !h.done).length}</b><span>открытых ДЗ</span></div>`;
+}
+
+// ---- Сводка по предметам ----
+function renderSummary(){
+  const now = new Date(), map = new Map();
+  for (const e of events){
+    if (!map.has(e.name)) map.set(e.name, { name: e.name, days: new Set(), pairs: 0, next: null, ctrl: [] });
+    const s = map.get(e.name);
+    if (e.cancelled || dt(e.end) <= now) continue;
+    const k = ctrlKind(e.type);
+    if (k && !isRetake(e.type)) s.ctrl.push({ k, d: ymd(e.start) });
+    if (isLesson(e.type)) { s.days.add(ymd(e.start)); s.pairs++; if (!s.next) s.next = e.start; }
+  }
+  allHw().filter(h => h.test && !h.done && h.due >= todayStr()).forEach(h => { const s = map.get(h.subject); if (s) s.ctrl.push({ k: 'kr', d: h.due, test: true }); });
+  const rows = [...map.values()].sort((a,b) => (b.days.size - a.days.size) || a.name.localeCompare(b.name, 'ru'));
+  $('sumList').innerHTML = rows.map(s => {
+    const n = s.days.size;
+    const ctrl = [...new Map(s.ctrl.sort((a,b) => a.d.localeCompare(b.d)).map(c => [c.k + c.d + (c.test || ''), c])).values()]
+      .map(c => `<span class="chip${c.k === 'kr' ? ' kr' : ''}">${c.k === 'zach' ? 'зачёт' : c.test ? 'тест' : 'КР'} ${fmtShort(c.d)}</span>`).join('');
+    const sub = n ? `${pluralPair(s.pairs)} · следующее ${fmtShort(ymd(s.next))}` : 'занятия закончились';
+    return `<div class="srow${n ? '' : ' done'}"><div class="sn">${esc(s.name.replace(/ - продвинутый уровень/, ''))}</div>
+      <div class="big">${n}<small>${plural(n,'день','дня','дней').replace(/^\d+ /, '')}</small></div>
+      <div class="sd">${sub}${ctrl ? '<br>' + ctrl : ''}</div></div>`;
+  }).join('') || '<div class="sm">Нет данных</div>';
+}
+
+// ---- Список дней ----
+function renderList(){
+  const now = new Date(), today = todayStr(), hw = allHw();
+  const mon = mondayOf(today), sun = addDays(mon, 6);
+  const byDay = new Map();
+  events.forEach(e => { const k = ymd(e.start); if (!byDay.has(k)) byDay.set(k, []); byDay.get(k).push(e); });
+  let days = [];
+  const range = (a, b) => { for (let d = a; d <= b; d = addDays(d, 1)) days.push(d); };
+  if (filter === 'upcoming') range(today, SEM.to);
+  else if (filter === 'week') range(mon, sun);
+  else if (filter === 'all') range(SEM.from, SEM.to);
+  else days = [...new Set([
+      ...events.filter(e => ctrlKind(e.type) === filter).map(e => ymd(e.start)),
+      ...(filter === 'kr' ? hw.filter(h => h.test).map(h => h.due) : [])
+    ])].filter(d => d >= today).sort();
+  const onlyCtrl = filter === 'zach' || filter === 'kr';
+  if (!days.length) { $('list').innerHTML = `<div class="empty">${filter === 'zach' ? 'Зачётов впереди нет' : filter === 'kr' ? 'КР и тестов впереди нет' : 'Здесь пусто'} 🎉</div>`; return; }
+
+  let html = '', lastWeek = '';
+  for (const day of days){
+    let evs = byDay.get(day) || [];
+    if (onlyCtrl) evs = evs.filter(e => ctrlKind(e.type) === filter);
+    const dayHw = hw.filter(h => h.due === day && (!onlyCtrl || (filter === 'kr' && h.test)));
+    const m = mondayOf(day);
+    if (m !== lastWeek) { html += `<div class="week">${m === mon ? 'Эта неделя · ' : ''}${fmtShort(m)} — ${fmtShort(addDays(m, 6))}</div>`; lastWeek = m; }
+    const isToday = day === today, n = evs.filter(e => !e.cancelled).length, free = !evs.length && !onlyCtrl;
+    html += `<section class="day${isToday ? ' today' : ''}${free ? ' free' : ''}"${isToday ? ' id="today"' : ''}>
+      <div class="dh"><span class="d">${esc(fmtDay(day))}${isToday ? '<span class="tag-today">сегодня</span>' : ''}</span><span class="c">${onlyCtrl ? '' : n ? pluralPair(n) : 'пар нет'}</span></div>`;
+    for (const e of evs){
+      const past = dt(e.end) < now, nowing = dt(e.start) <= now && dt(e.end) > now;
+      const o = e.ov || {}, flags = [];
+      if (e.siteCancelled) flags.push('<span class="flag bad">Отменено</span>');
+      else if (o.cancelled) flags.push('<span class="flag bad">Отменено (моя пометка)</span>');
+      if (o.online) flags.push('<span class="flag">Онлайн (моя пометка)</span>');
+      if (o.note) flags.push(`<span class="flag note">📝 ${esc(o.note)}</span>`);
+      if (e.timeCh) flags.push('<span class="flag">Время изменено</span>');
+      if (e.locCh) flags.push('<span class="flag">Аудитория изменена</span>');
+      if (e.eduCh) flags.push('<span class="flag">Замена преподавателя</span>');
+      if (changed.has(e.ok)) flags.push('<span class="flag new">Изменилось с прошлого визита</span>');
+      const loc = e.online ? '<span class="online">Онлайн</span>'
+        : e.geo ? `<a href="https://yandex.ru/maps/?pt=${e.geo[1]},${e.geo[0]}&z=17&l=map" target="_blank" rel="noopener">${esc(e.loc)}</a>` : esc(e.loc);
+      html += `<div class="ev${past ? ' past' : ''}${nowing ? ' now' : ''}${e.cancelled ? ' cancel' : ''}" style="--k:${kindOf(e.type)}">
+        <div class="tm">${hm(e.start)}<small>${hm(e.end)}</small></div>
+        <div><div class="nm">${esc(e.name)}<span class="kind">${esc(e.type)}</span></div>
+          <div class="meta">${loc}${e.teacher ? ' · ' + esc(e.teacher) : ''}</div>
+          ${flags.length ? `<div class="flags">${flags.join('')}</div>` : ''}</div>
+        <button class="evx" data-ov="${e.ok}" title="Своя пометка">⋯</button>
+        ${editingOv === e.ok ? `<div class="oved" data-ovbox="${e.ok}">
+          <label><input type="checkbox" data-f="online" ${o.online ? 'checked' : ''}> Онлайн</label>
+          <label><input type="checkbox" data-f="cancelled" ${o.cancelled ? 'checked' : ''}> Отменена</label>
+          <input type="text" data-f="note" placeholder="Заметка: аудитория, перенос…" value="${esc(o.note || '')}">
+          <button class="primary" data-ovsave="${e.ok}">Сохранить</button>
+          ${e.ov ? `<button data-ovclear="${e.ok}">Убрать пометку</button>` : ''}
+        </div>` : ''}
+      </div>`;
+    }
+    if (dayHw.length) html += `<div class="dayhw"><div class="lbl">Сдать / подготовить</div>${dayHw.map(h => hwItem(h, true)).join('')}</div>`;
+    html += '</section>';
+  }
+  $('list').innerHTML = html;
+}
+
+// ================= Общие обработчики =================
+document.addEventListener('click', async e => {
+  if ($('menu') && !$('menu').hidden && !e.target.closest('#menu')) $('menu').hidden = true;
+  const t = e.target.closest('[data-del],[data-ov],[data-ovsave],[data-ovclear]');
+  if (!t) return;
+  if (t.dataset.del) {               // удаление ДЗ: «×» → «Удалить?» → удалить
+    if (!t.classList.contains('arm')) {
+      document.querySelectorAll('.x.arm').forEach(b => { b.classList.remove('arm'); b.textContent = '×'; });
+      t.classList.add('arm'); t.textContent = 'Удалить?';
+      setTimeout(() => { t.classList.remove('arm'); t.textContent = '×'; }, 3000);
+      return;
+    }
+    await backend.update({ ['hw.' + t.dataset.del]: DEL });
+  } else if (t.dataset.ov) {
+    editingOv = editingOv === t.dataset.ov ? null : t.dataset.ov; renderList();
+  } else if (t.dataset.ovsave) {
+    const box = t.closest('.oved');
+    const o = { online: box.querySelector('[data-f=online]').checked, cancelled: box.querySelector('[data-f=cancelled]').checked, note: box.querySelector('[data-f=note]').value.trim() };
+    editingOv = null;
+    await backend.update({ ['ov.' + t.dataset.ovsave]: (o.online || o.cancelled || o.note) ? o : DEL });
+  } else if (t.dataset.ovclear) {
+    editingOv = null;
+    await backend.update({ ['ov.' + t.dataset.ovclear]: DEL });
+  }
+});
+document.addEventListener('change', e => {
+  const id = e.target.dataset && e.target.dataset.hw;
+  if (id) backend.update({ ['hw.' + id + '.done']: e.target.checked });
+});
+
+// ================= Старт =================
+(async () => {
+  try { backend = LOCAL ? localBackend() : await firebaseBackend(); }
+  catch (e) { app.innerHTML = `<div class="empty">Не удалось загрузить сервис входа (${esc(e.message)}). Проверь интернет и обнови страницу.</div>`; return; }
+  backend.onUser(u => {
+    user = u; profile = null; forced = null; loadedGid = null; all = []; view = null;
+    if (unwatch) { unwatch(); unwatch = null; }
+    if (u) unwatch = backend.watch(u.uid, data => { profile = data || {}; route(); });
+    route();
+  });
+  setInterval(() => { if (profile && profile.group && view === 'main') loadGroup(profile.group.id, true); }, 30 * 60 * 1000);
+  setInterval(() => { if (view === 'main') { renderNext(); renderStats(); renderSummary(); } }, 60 * 1000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && view === 'main') showMain(); });
+  window.app = { update: p => backend.update(p), DEL, get profile(){ return profile; }, get events(){ return events; } };
+})();
+</script>
+</body>
+</html>
