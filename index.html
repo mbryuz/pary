@@ -752,7 +752,7 @@ function buildMain(){
   const ava = user.photoURL ? `<img src="${esc(user.photoURL)}" alt="" referrerpolicy="no-referrer">` : esc((user.displayName || '?')[0]);
   app.innerHTML = `
   <header>
-    <div><h1>Мои пары</h1><div class="sub">${esc(profile.group.name)} · до ${fmtLong(SEM.to)}</div></div>
+    <div><h1>Мои пары</h1><div class="sub">${esc(profile.group.name)} · семестр до ${fmtLong(SEM.to)}</div></div>
     <div class="hdr-r">
       <div class="status"><span class="dot" id="dot"></span><span id="st"></span><button id="refresh" title="Обновить">↻</button></div>
       <button class="avatar" id="menuBtn" title="Меню">${ava}</button>
@@ -893,7 +893,7 @@ function renderStats(){
   const zach = ahead.filter(e => ctrlKind(e.type) === 'zach' && !isRetake(e.type)).length;
   const kr = ahead.filter(e => ctrlKind(e.type) === 'kr').length + hw.filter(h => h.test && !h.done && h.due >= today).length;
   $('stats').innerHTML = `<div class="stat"><b>${inWeek}</b><span>пар на этой неделе</span></div>
-    <div class="stat"><b>${ahead.length}</b><span>пар до ${fmtShort(SEM.to)}</span></div>
+    <div class="stat"><b>${ahead.length}</b><span>пар до конца семестра</span></div>
     <div class="stat exam"><b>${zach}</b><span>зачётов впереди</span></div>
     <div class="stat exam"><b>${kr}</b><span>КР и тестов впереди</span></div>
     <div class="stat"><b>${hw.filter(h => !h.done).length}</b><span>открытых ДЗ</span></div>`;
