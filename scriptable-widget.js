@@ -261,25 +261,29 @@ function togetherWidget() {
   const pn = partner.name;
   const isToday = dayDiff(day, now) === 0;
 
-  if (fam === 'medium') {           // вариант Б: шкала дня, как виджет календаря
+  if (fam === 'medium') {           // вариант А: день слева, две колонки плашек, как виджет календаря
     const row = w.addStack(); row.layoutHorizontally();
-    const left = row.addStack(); left.layoutVertically(); left.size = new Size(48, 0);
+    const left = row.addStack(); left.layoutVertically(); left.size = new Size(46, 0);
     txt(left, WD[day.getDay()], 13, 'm', C.or);
     txt(left, String(day.getDate()), 32, '', C.txt, 1);
     txt(left, isToday ? 'Мы' : 'завтра', 11, '', C.dim, 1);
     left.addSpacer();
     row.addSpacer(6);
     const right = row.addStack(); right.layoutVertically();
-    const nA = A.find(e => e.E > now), nB = B.find(e => e.E > now);
-    const line = right.addStack(); line.layoutHorizontally(); line.centerAlignContent();
-    txt(line, 'Я ', 11.5, 'b', C.or);
-    txt(line, nA ? `${hm(nA.S)} ${shortN(nA.n).split(' ')[0]}` : 'свободен', 11.5, '', nA ? C.txt : C.ok, 1);
-    txt(line, '  ·  ', 11.5, '', C.dim);
-    txt(line, pn + ' ', 11.5, 'b', C.dim, 1);
-    txt(line, nB ? `${hm(nB.S)} ${shortN(nB.n).split(' ')[0]}` : 'свободна', 11.5, '', nB ? C.txt : C.ok, 1);
-    right.addSpacer(6);
-    const t = timeline(A, B, wins, 262, { names: ['Я', pn], ticks: true, abbr: true, lane: 20, showNow: isToday });
-    const im = right.addImage(t.img); im.imageSize = new Size(262, t.H);
+    const colsA = right.addStack(); colsA.layoutHorizontally(); colsA.topAlignContent();
+    const short2 = n => shortN(n).split(' ').slice(0, 2).join(' ');
+    const colA = (who, list, her) => {
+      const c = colsA.addStack(); c.layoutVertically(); c.spacing = 3; c.size = new Size(128, 0);
+      txt(c, `${who} · ${list.length ? plural(list.length, 'пара', 'пары', 'пар') : 'без пар'}`.toUpperCase(), 9.5, 'b', C.dim, 1);
+      const rest = list.filter(e => e.E > now || !isToday);
+      const shown = (rest.length ? rest : list).slice(0, 2);
+      shown.forEach(e => card(c, short2(e.n), `${hm(e.S)}–${hm(e.E)}`, { now: !her && e === show, bg: her ? C.chip2 : C.chip, size: 12, pv: 3 }));
+      const left2 = list.filter(e => !shown.includes(e) && (e.E > now || !isToday));
+      if (left2.length) txt(c, `+${left2.length} · до ${hm(list[list.length - 1].E)}`, 10, '', C.dim, 1);
+      else if (list.length) txt(c, her ? 'потом свободна' : 'потом свободен', 10.5, 'm', C.ok, 1);
+      else txt(c, her ? 'весь день свободна' : 'весь день свободен', 10.5, 'm', C.ok, 1);
+    };
+    colA('Я', A, false); colsA.addSpacer(6); colA(pn, B, true);
     right.addSpacer();
     const win = right.addStack(); win.backgroundColor = C.okbg; win.cornerRadius = 9; win.setPadding(4, 8, 4, 8);
     txt(win, wins.length ? '💞 Оба свободны ' + wins.map(([s, e]) => `${fmtMin(s)}–${fmtMin(e)}`).join(', ') : 'Общих свободных окон днём нет', 11.5, 'b', C.ok, 1);
@@ -314,7 +318,7 @@ function togetherWidget() {
   if (fam === 'large') {
     w.addSpacer();
     label(w, 'День'); w.addSpacer(4);
-    const t = timeline(A, B, wins, 300, { ticks: true, abbr: true, lane: 18, showNow: isToday });
+    const t = timeline(A, B, wins, 300, { ticks: true, lane: 16 });
     const img = w.addImage(t.img); img.imageSize = new Size(300, t.H);
     w.addSpacer(8);
   } else w.addSpacer();
