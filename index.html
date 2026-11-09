@@ -137,6 +137,7 @@ input:focus,select:focus{outline:2px solid var(--accent);outline-offset:-1px}
 .pband.gap{background:var(--bg);color:var(--muted);border:1px dashed var(--line)}
 .pband + .week{margin-top:10px}
 .day.hol .c{color:var(--ok)}
+.steps{margin:6px 0 0;padding-left:20px;display:grid;gap:6px;font-size:13px;color:var(--ink)}
 .flag.mine{background:var(--accent-soft);color:var(--accent)}
 .absn{color:var(--bad);font-weight:700}
 .snote{grid-column:1/-1;margin-top:8px;cursor:default}
@@ -402,6 +403,8 @@ async function firebaseBackend(){
     watchOther(uid, f, onErr){
       return F.onSnapshot(F.doc(db, 'users', uid), s => s.exists() ? f(s.data()) : onErr({ code: 'not-found' }), onErr);
     },
+    setWidget: (tok, data) => F.setDoc(F.doc(db, 'widgets', tok), data),
+    delWidget: tok => F.deleteDoc(F.doc(db, 'widgets', tok)),
     async update(patch){
       const p = {}; for (const [k,v] of Object.entries(patch)) p[k] = v === DEL ? F.deleteField() : v;
       try { await F.updateDoc(ref, p); }
@@ -651,6 +654,7 @@ function route(){
   if (!profile.group || forced === 'group') return showGroup();
   if (forced === 'partner') { syncPartner(); return showPartner(); }
   if (forced === 'notify') { syncReminders(); if (view !== 'notify') showNotify(); return; }
+  if (forced === 'widget') { if (view !== 'widget') showWidget(); return; }
   if (loadedGid !== profile.group.id) loadGroup(profile.group.id);
   if (!profile.known || forced === 'choices') {
     if (!all.length) { app.innerHTML = `<div class="empty">${groupError ? 'Не удалось загрузить расписание: ' + esc(groupError) : 'Загружаю расписание группы…'}</div>`; view = null; return; }
@@ -661,6 +665,7 @@ function route(){
   if (!backend.local && user.displayName && profile.name !== user.displayName) backend.update({ name: user.displayName });
   syncPartner();
   syncReminders();
+  syncWidget();
   showMain();
 }
 
@@ -746,6 +751,85 @@ async function showNotify(){
     const t = { id: 'test' + Date.now().toString(36), at: new Date().toISOString(), title: 'Проверка уведомлений', body: 'Если ты это видишь — пуши работают 🎉' };
     await backend.update({ testPush: t });
     $('nTest').textContent = 'Отправлено — придёт в течение ~15 минут'; $('nTest').disabled = true;
+  };
+}
+
+// ================= Виджет для iPhone (Scriptable) =================
+// Сайт кладёт короткую сводку в widgets/{секретный токен} (читается без входа, только по токену),
+// скрипт в Scriptable забирает её раз в 15 минут.
+function widgetPayload(){
+  const today = todayStr(), lim = addDays(today, 10);
+  const room = e => e.online ? 'онлайн' : (e.loc || '').includes(',') ? 'ауд. ' + e.loc.split(',').pop().trim() : (e.loc || '');
+  const ev = events.filter(e => !e.cancelled && ymd(e.start) >= today && ymd(e.start) <= lim).slice(0, 60)
+    .map(e => ({ s: e.start + '+03:00', e: e.end + '+03:00', n: shortName(e.name), t: e.type, l: room(e), k: fk(e.type) || '' }));
+  const dl = [];
+  for (const h of allHw()) if (!h.done && h.due >= today) dl.push({ d: h.due, t: h.text, sub: shortName(h.subject), k: isExamHw(h) ? 'exam' : isKrHw(h) ? 'kr' : 'hw' });
+  for (const e of events) {
+    const k = fk(e.type);
+    if (k && !e.cancelled && ymd(e.start) >= today && ymd(e.start) <= addDays(today, 30))
+      dl.push({ d: e.start + '+03:00', t: k === 're' ? 'Пересдача' : /экзам/i.test(e.type) ? 'Экзамен' : k === 'zach' ? 'Зачёт' : 'КР', sub: shortName(e.name), k });
+  }
+  dl.sort((a, b) => a.d.localeCompare(b.d));
+  return { name: profile.group.name, events: ev, deadlines: dl.slice(0, 10) };
+}
+async function syncWidget(){
+  const tok = profile.widgetToken;
+  if (!tok || backend.local || !backend.setWidget) return;
+  const s = JSON.stringify(widgetPayload());
+  if (ls.get('wg-' + tok) === s) return;
+  try { await backend.setWidget(tok, { uid: user.uid, json: JSON.stringify({ ...JSON.parse(s), updated: new Date().toISOString() }) }); ls.set('wg-' + tok, s); }
+  catch (e) { console.warn('widget', e); }
+}
+async function showWidget(){
+  view = 'widget';
+  const tok = profile.widgetToken;
+  let script = '';
+  if (tok) {
+    try { script = (await (await fetch('scriptable-widget.js', { cache: 'no-cache' })).text()).replace('__TOKEN__', tok).replace('__KEY__', FIREBASE.apiKey); }
+    catch { script = ''; }
+  }
+  app.innerHTML = `
+    <header><div><h1>Виджет для iPhone</h1><div class="sub">следующая пара и дедлайны на экране «Домой» и экране блокировки</div></div><button id="back">Готово</button></header>
+    ${!tok ? `<section class="panel"><h2>Как это работает</h2>
+      <p class="sm">Виджет делается через бесплатное приложение <b>Scriptable</b> из App Store. Сайт будет сохранять короткую сводку (пары на 10 дней и дедлайны) по секретной ссылке, а виджет — забирать её раз в 15 минут. Сводка обновляется, когда ты открываешь сайт.</p>
+      <button class="primary big" id="wOn" style="margin-top:10px">Создать виджет</button></section>`
+    : `<section class="panel"><h2>1. Скопируй скрипт</h2>
+      <p class="sm">Делай это на iPhone — так скрипт сразу окажется в буфере обмена.</p>
+      <div class="row" style="margin-top:8px"><button class="primary big" id="wCopy" ${script ? '' : 'disabled'}>Скопировать скрипт</button></div>
+      <details style="margin-top:10px"><summary class="sm">показать текст скрипта</summary><textarea id="wText" readonly rows="8" style="width:100%;margin-top:8px;font:12px/1.4 ui-monospace,monospace">${esc(script)}</textarea></details>
+    </section>
+    <section class="panel"><h2>2. Вставь в Scriptable</h2>
+      <ol class="sm steps">
+        <li>Установи <b>Scriptable</b> из App Store и открой его.</li>
+        <li>Нажми <b>+</b> справа вверху, удали пример (если есть) и вставь скрипт.</li>
+        <li>Нажми на название вверху и назови скрипт <b>Мои пары</b>, затем <b>Done</b>. Можно нажать ▶︎ — покажется средний виджет.</li>
+      </ol></section>
+    <section class="panel"><h2>3. Добавь виджет</h2>
+      <ol class="sm steps">
+        <li>Долгое нажатие на пустое место экрана «Домой» → <b>Изменить</b> → <b>Добавить виджет</b> → <b>Scriptable</b>.</li>
+        <li>Выбери размер (маленький, средний или большой) → <b>Добавить виджет</b>.</li>
+        <li>Нажми на появившийся виджет → в поле <b>Script</b> выбери <b>Мои пары</b>.</li>
+        <li>Для экрана блокировки: долгое нажатие на экран блокировки → <b>Настроить</b> → поле виджетов → Scriptable → так же выбери скрипт.</li>
+      </ol></section>
+    <section class="panel"><h2>Отключить</h2><p class="sm">Секретная ссылка перестанет работать, виджет покажет последние сохранённые данные.</p>
+      <button class="danger" id="wOff">Отключить виджет</button></section>`}`;
+  $('back').onclick = () => { forced = null; route(); };
+  if ($('wOn')) $('wOn').onclick = async () => {
+    const tok = Array.from(crypto.getRandomValues(new Uint8Array(18)), b => 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'[b % 62]).join('');
+    await backend.update({ widgetToken: tok });
+    profile.widgetToken = tok;
+    await syncWidget();
+    showWidget();
+  };
+  if ($('wCopy')) $('wCopy').onclick = async () => {
+    try { await navigator.clipboard.writeText(script); $('wCopy').textContent = 'Скопировано ✓'; }
+    catch { const t = $('wText'); t.closest('details').open = true; t.focus(); t.select(); $('wCopy').textContent = 'Выдели текст ниже и скопируй'; }
+  };
+  if ($('wOff')) $('wOff').onclick = async () => {
+    const t = profile.widgetToken;
+    try { await backend.delWidget(t); } catch {}
+    await backend.update({ widgetToken: DEL });
+    showWidget();
   };
 }
 
@@ -1052,6 +1136,7 @@ function buildMain(){
         <div class="who"><b>${esc(user.displayName || '')}</b><span class="sm">${esc(user.email || '')}</span></div>
         <button data-act="choices">Мои предметы (элективы, преподаватели)</button>
         <button data-act="notify">Уведомления</button>
+        <button data-act="widget">Виджет для iPhone</button>
         <button data-act="partner">Совместный режим</button>
         <button data-act="group">Сменить группу</button>
         <button data-act="logout">Выйти</button>
