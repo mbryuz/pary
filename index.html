@@ -90,6 +90,11 @@ input:focus,select:focus{outline:2px solid var(--accent);outline-offset:-1px}
 .x{border:0;background:none;color:var(--muted);padding:0 4px;font-size:16px;line-height:1}
 .x:hover{color:var(--bad)}
 .x.arm{background:var(--bad);color:#fff;border-radius:6px;font-size:11px;font-weight:700;padding:3px 8px;white-space:nowrap}
+.hw .x.ed{font-size:14px}
+.hw .hw-ic{width:18px;text-align:center;flex:none;font-size:14px;line-height:1.3}
+.hwedit{display:grid;grid-template-columns:2fr 1.4fr 140px 1fr;gap:8px;padding:10px;margin:6px 0;border-radius:12px;background:var(--accent-soft)}
+.hwedit .row{grid-column:1/-1}
+@media (max-width:560px){ .hwedit{grid-template-columns:1fr 1fr} .hwedit input[name=text]{grid-column:1/-1} }
 .hw-test{font-size:10px;font-weight:800;color:var(--exam);border:1px solid var(--exam);border-radius:4px;padding:0 5px;margin-right:6px;vertical-align:1px;text-transform:uppercase;letter-spacing:.04em}
 .add{display:grid;grid-template-columns:1fr 1fr 140px auto;gap:8px;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
 .add input[name=text]{grid-column:1/-1}
@@ -210,7 +215,7 @@ footer a{color:inherit}
 .or::before,.or::after{content:"";flex:1;height:1px;background:var(--line)}
 .ac{position:relative}
 .ac input{width:100%;font-size:17px;padding:12px 14px;border-radius:12px}
-.sugg{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:5;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.15);overflow:hidden}
+.sugg{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:5;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.15);overflow:auto;max-height:min(420px,60vh)}
 .si{display:block;width:100%;text-align:left;border:0;border-radius:0;background:none;padding:10px 14px;border-top:1px solid var(--line)}
 .si:first-child{border-top:0}
 .si b{display:block;font-size:15px}
@@ -927,9 +932,9 @@ function showGroup(){
     <section class="panel">
       <div class="step">Шаг 1 из 2 · группа</div>
       <h2>Какая у тебя группа?</h2>
-      <p class="sm">Начни вводить номер, например <b>26.М01-э</b>, и выбери группу из списка.</p>
+      <p class="sm">Введи номер группы (<b>26.М01-э</b>) или название направления / программы (<b>поведенческая экономика 2026</b>) и выбери группу из списка.</p>
       <div class="ac">
-        <input id="gIn" placeholder="26.М01-э" autocomplete="off" autocapitalize="off" spellcheck="false" value="${cur ? esc(cur.name) : ''}">
+        <input id="gIn" placeholder="26.М01-э или название программы" autocomplete="off" autocapitalize="off" spellcheck="false" value="${cur ? esc(cur.name) : ''}">
         <div class="sugg" id="sugg" hidden></div>
       </div>
       <div id="gRes"></div>
@@ -949,7 +954,8 @@ async function loadGroupIndex(){
   try {
     const r = await fetch('groups.json', { cache: 'no-cache' });
     const j = r.ok ? await r.json() : { g: [] };
-    groupIndex = j.g.map(([n, a, pid, p, l, y, id]) => ({ n, a, pid, y, id, d: j.div[a], p: j.prog[p], l: j.lvl[l], k: norm(n) }));
+    groupIndex = j.g.map(([n, a, pid, p, l, y, id]) => ({ n, a, pid, y, id, d: j.div[a], p: j.prog[p], l: j.lvl[l], k: norm(n),
+      hay: [j.div[a], j.prog[p], j.lvl[l], y].join(' ').toLowerCase().replace(/ё/g, 'е') }));
   } catch { groupIndex = []; }
   return groupIndex;
 }
@@ -1022,6 +1028,15 @@ function initGroupSearch(){
     const idx = await loadGroupIndex();
     if (norm(inp.value.trim()) !== q) return;            // пока грузили, пользователь ввёл другое
     items = idx.filter(g => g.k.startsWith(q)).concat(idx.filter(g => !g.k.startsWith(q) && g.k.includes(q))).slice(0, 8);
+    // поиск по названию направления / программы / уровня: «поведенческая экономика», «экономика магистратура 2026»
+    const words = raw.toLowerCase().replace(/ё/g, 'е').split(/[\s,]+/).filter(w => w.length >= 2);
+    if (/[а-яёa-z]{3,}/i.test(raw) && words.length) {
+      const years = words.filter(w => /^20\d\d$/.test(w)), text = words.filter(w => !/^20\d\d$/.test(w));
+      const more = idx.filter(g => !items.includes(g)
+          && text.every(w => g.hay.includes(w)) && years.every(y => String(g.y) === y))
+        .sort((a, b) => b.y - a.y || a.n.localeCompare(b.n, 'ru'));
+      items = items.concat(more).slice(0, 30);
+    }
     active = items.length ? 0 : -1; draw();
     // точное название, которого нет в справочнике → ищем на сайте
     if (!items.some(g => g.k === q) && /^\d{2}\.[^\s]{2,}-[^\s]+$/.test(raw)) {
@@ -1252,8 +1267,11 @@ function renderBanner(){
 }
 
 // ---- Домашка ----
-const allHw = () => Object.entries(profile.hw || {}).map(([id, h]) => ({ id, ...h }))
+// Тесты/КР и зачёты/экзамены, добавленные вручную, не нужно отмечать: они «проходят» сами после своей даты.
+const isAutoHw = h => isKrHw(h) || isExamHw(h);
+const allHw = () => Object.entries(profile.hw || {}).map(([id, h]) => ({ id, ...h, done: isAutoHw(h) ? h.due < todayStr() : !!h.done }))
   .sort((a,b) => a.due.localeCompare(b.due) || (a.created||0) - (b.created||0));
+let editingHw = null;
 function dueLabel(due){
   const diff = Math.round((new Date(due+'T12:00') - new Date(todayStr()+'T12:00')) / 864e5);
   if (diff < 0) return ['просрочено', 'late'];
@@ -1262,13 +1280,27 @@ function dueLabel(due){
   if (diff <= 3) return [`через ${diff} дн.`, 'soon'];
   return [fmtShort(due), ''];
 }
+function hwSubjects(){ return [...new Set(events.map(e => e.name))].sort((a,b) => a.localeCompare(b,'ru')); }
 function hwItem(h, compact){
+  if (!compact && editingHw === h.id) {
+    const names = hwSubjects(); if (h.subject && !names.includes(h.subject)) names.unshift(h.subject);
+    const kind = isExamHw(h) ? 'exam' : isKrHw(h) ? 'kr' : '';
+    return `<form class="hwedit" data-hwform="${esc(h.id)}">
+      <input name="text" value="${esc(h.text)}" required>
+      <select name="subject">${names.map(n => `<option ${n === h.subject ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>
+      <input type="date" name="due" value="${esc(h.due)}" required>
+      <select name="kind"><option value="" ${kind === '' ? 'selected' : ''}>обычное ДЗ</option><option value="kr" ${kind === 'kr' ? 'selected' : ''}>тест / КР</option><option value="exam" ${kind === 'exam' ? 'selected' : ''}>зачёт / экзамен</option></select>
+      <div class="row"><button class="primary" type="submit">Сохранить</button><button type="button" data-hwcancel="1">Отмена</button></div>
+    </form>`;
+  }
   const [lbl, cls] = dueLabel(h.due);
-  return `<div class="hw${h.done ? ' done' : ''}">
-    <input type="checkbox" data-hw="${esc(h.id)}" ${h.done ? 'checked' : ''} title="Сделано">
+  const auto = isAutoHw(h);
+  return `<div class="hw${h.done ? ' done' : ''}${auto ? ' auto' : ''}">
+    ${auto ? `<span class="hw-ic" title="Отмечать не нужно — пройдёт само после даты">${isExamHw(h) ? '🎓' : '📝'}</span>` : `<input type="checkbox" data-hw="${esc(h.id)}" ${h.done ? 'checked' : ''} title="Сделано">`}
     <div class="body"><div class="txt">${isExamHw(h) ? '<span class="hw-test">экзамен</span>' : isKrHw(h) ? '<span class="hw-test">тест</span>' : ''}${esc(h.text)}${compact ? ' · <span class="sm">' + esc(h.subject.replace(/ - продвинутый уровень/, '')) + '</span>' : ''}</div>
-    ${compact ? '' : `<div class="sm">${esc(h.subject)}</div>`}</div>
-    ${compact || h.done ? '' : `<span class="due ${cls}">${lbl}</span>`}
+    ${compact ? '' : `<div class="sm">${esc(h.subject)}${auto && h.done ? ' · прошло' : ''}</div>`}</div>
+    ${compact || h.done ? '' : `<span class="due ${auto && cls === 'late' && lbl === 'просрочено' ? '' : cls}">${lbl}</span>`}
+    ${compact ? '' : `<button class="x ed" data-hwedit="${esc(h.id)}" title="Изменить">✎</button>`}
     <button class="x" data-del="${esc(h.id)}" title="Удалить">×</button></div>`;
 }
 function renderHw(){
@@ -1276,10 +1308,10 @@ function renderHw(){
   const shown = showDone ? list : open;
   $('hwlist').innerHTML = shown.length ? shown.map(h => hwItem(h)).join('') : `<div class="sm">${list.length ? 'Всё сделано 🎉' : 'Заданий пока нет — добавь первое ниже.'}</div>`;
   $('hwcnt').textContent = open.length ? `${open.length} открыто` : '';
-  $('toggleDone').textContent = done.length ? (showDone ? 'скрыть сделанное' : `показать сделанное (${done.length})`) : '';
+  $('toggleDone').textContent = done.length ? (showDone ? 'скрыть сделанное и прошедшее' : `показать сделанное и прошедшее (${done.length})`) : '';
   $('toggleDone').style.display = done.length ? '' : 'none';
   const sel = $('subjSel'), cur = sel.value;
-  const names = [...new Set(events.map(e => e.name))].sort((a,b) => a.localeCompare(b,'ru'));
+  const names = hwSubjects();
   sel.innerHTML = '<option value="">Предмет…</option>' + names.map(n => `<option>${esc(n)}</option>`).join('');
   if (names.includes(cur)) sel.value = cur;
 }
@@ -1317,7 +1349,7 @@ function renderStats(){
     <div class="stat"><b>${ahead.length}</b><span>пар до конца семестра</span></div>
     <div class="stat exam"><b>${zach}</b><span>зачётов и экзаменов${retakes ? ` · +${retakes} ${plural(retakes, 'пересдача', 'пересдачи', 'пересдач').replace(/^\d+ /, '')}` : ''}</span></div>
     <div class="stat exam"><b>${kr}</b><span>КР и тестов впереди</span></div>
-    <div class="stat"><b>${hw.filter(h => !h.done).length}</b><span>открытых ДЗ</span></div>`;
+    <div class="stat"><b>${hw.filter(h => !h.done && !isAutoHw(h)).length}</b><span>открытых ДЗ</span></div>`;
 }
 
 // ---- Сводка по предметам ----
@@ -1499,6 +1531,8 @@ document.addEventListener('click', async e => {
     openSubj.has(n) ? openSubj.delete(n) : openSubj.add(n);
     renderSummary(); return;
   }
+  const he = e.target.closest('[data-hwedit],[data-hwcancel]');
+  if (he) { editingHw = he.dataset.hwedit || null; renderHw(); return; }
   const t = e.target.closest('[data-del],[data-ov],[data-ovsave],[data-ovclear],[data-mdel],[data-mdelall]');
   if (!t) return;
   if (t.dataset.mdel || t.dataset.mdelall) {   // удаление своего занятия: второе нажатие подтверждает
@@ -1530,6 +1564,13 @@ document.addEventListener('click', async e => {
     editingOv = null;
     await backend.update({ ['ov.' + t.dataset.ovclear]: DEL });
   }
+});
+document.addEventListener('submit', async e => {   // сохранение отредактированного задания
+  const f = e.target.closest('[data-hwform]'); if (!f) return;
+  e.preventDefault();
+  const id = f.dataset.hwform, k = f.kind.value;
+  editingHw = null;
+  await backend.update({ ['hw.' + id + '.text']: f.text.value.trim(), ['hw.' + id + '.subject']: f.subject.value, ['hw.' + id + '.due']: f.due.value, ['hw.' + id + '.kind']: k, ['hw.' + id + '.test']: k === 'kr' });
 });
 document.addEventListener('change', e => {
   const id = e.target.dataset && e.target.dataset.hw;
