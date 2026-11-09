@@ -348,10 +348,14 @@ def room(e):
     return 'ауд. ' + loc.split(',')[-1].strip() if ',' in loc else loc
 
 
-def widget_payload(evs, p):
+def widget_events(evs):
     lim = add_days(TODAY, 10)
-    ev = [{'s': e['start'] + '+03:00', 'e': e['end'] + '+03:00', 'n': short_name(e['name']), 't': e['type'], 'l': room(e), 'k': fk(e['type']) or ''}
-          for e in evs if not e['cancelled'] and TODAY <= e['start'][:10] <= lim][:60]
+    return [{'s': e['start'] + '+03:00', 'e': e['end'] + '+03:00', 'n': short_name(e['name']), 't': e['type'], 'l': room(e), 'k': fk(e['type']) or ''}
+            for e in evs if not e['cancelled'] and TODAY <= e['start'][:10] <= lim][:60]
+
+
+def widget_payload(evs, p, partner=None):
+    ev = widget_events(evs)
     dl = []
     for h in all_hw(p):
         if not h['done'] and h.get('due', '') >= TODAY:
@@ -362,14 +366,17 @@ def widget_payload(evs, p):
             t = 'Пересдача' if k == 're' else 'Экзамен' if re.search('экзам', e['type'], re.I) else 'Зачёт' if k == 'zach' else 'КР'
             dl.append({'d': e['start'] + '+03:00', 't': t, 'sub': short_name(e['name']), 'k': k})
     dl.sort(key=lambda x: x['d'])
-    return {'name': (p.get('group') or {}).get('name', ''), 'events': ev, 'deadlines': dl[:10]}
+    out = {'name': (p.get('group') or {}).get('name', ''), 'events': ev, 'deadlines': dl[:10]}
+    if partner:
+        out['partner'] = partner
+    return out
 
 
-def update_widget(uid, p, evs):
+def update_widget(uid, p, evs, partner=None):
     tok = p.get('widgetToken')
     if not tok:
         return False
-    data = widget_payload(evs, p)
+    data = widget_payload(evs, p, partner)
     ref = db.collection('widgets').document(tok)
     snap = ref.get()
     if snap.exists:
@@ -387,21 +394,45 @@ def update_widget(uid, p, evs):
 
 # ---------- главный цикл ----------
 groups, stats = {}, {'users': 0, 'pushes': 0, 'widgets': 0, 'errors': 0}
-for doc in db.collection('users').stream():
-    p = doc.to_dict() or {}
+docs = list(db.collection('users').stream())
+profiles = {d.id: (d.to_dict() or {}) for d in docs}
+
+
+def my_events(p):
+    gid = (p.get('group') or {}).get('id')
+    if not gid:
+        return None
+    if gid not in groups:
+        groups[gid] = group_events(gid)
+    base = groups[gid]
+    return None if base is None else filter_mine([dict(e) for e in base], p)
+
+
+def partner_block(uid, p):
+    """Пары партнёра для виджета «вместе» — только если связка взаимная (как правила доступа на сайте)."""
+    pid = p.get('partner')
+    q = profiles.get(pid) if pid else None
+    if not q or uid not in (q.get('share') or {}):
+        return None
+    evs = my_events(q)
+    if evs is None:
+        return None
+    return {'name': (q.get('name') or 'Партнёр').split(' ')[0], 'events': widget_events(evs)}
+
+
+for doc in docs:
+    p = profiles[doc.id]
     gid = (p.get('group') or {}).get('id')
     if not gid or not (p.get('push') or p.get('widgetToken')):
         continue
     stats['users'] += 1
     try:
-        if gid not in groups:
-            groups[gid] = group_events(gid)
-        base = groups[gid]
-        if base is None:
+        evs = my_events(p)
+        if evs is None:
             continue
-        evs = filter_mine([dict(e) for e in base], p)
         stats['pushes'] += send_pushes(doc, p, evs)
-        stats['widgets'] += 1 if update_widget(doc.id, p, evs) else 0
+        if p.get('widgetToken'):
+            stats['widgets'] += 1 if update_widget(doc.id, p, evs, partner_block(doc.id, p)) else 0
     except Exception:
         stats['errors'] += 1
         traceback.print_exc()

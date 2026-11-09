@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#4f46e5">
+<meta name="theme-color" content="#ff7a00">
 <title>Мои пары</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
@@ -16,17 +16,17 @@
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#f4f5f8; --card:#ffffff; --ink:#15171c; --muted:#6b7180; --line:#e4e6ec;
-  --accent:#4f46e5; --accent-soft:#eef0ff;
-  --lec:#2563eb; --sem:#0d9488; --prac:#d97706; --exam:#dc2626; --other:#7c3aed;
+  --bg:#f6f4f2; --card:#ffffff; --ink:#1d1b1a; --muted:#77706b; --line:#ebe6e2;
+  --accent:#f26a00; --accent-soft:#fff1e4;
+  --lec:#2563eb; --sem:#0d9488; --prac:#7c3aed; --exam:#dc2626; --other:#78716c;
   --warn-bg:#fff5e6; --warn:#b45309; --bad-bg:#fdecec; --bad:#b91c1c; --ok:#16a34a;
   --shadow:0 1px 2px rgba(20,23,30,.05),0 4px 16px rgba(20,23,30,.05);
 }
 @media (prefers-color-scheme: dark){
   :root{
-    --bg:#0f1115; --card:#171a21; --ink:#e9ebf0; --muted:#8b91a0; --line:#262a33;
-    --accent:#8b8cf8; --accent-soft:#1f2133;
-    --lec:#60a5fa; --sem:#2dd4bf; --prac:#fbbf24; --exam:#f87171; --other:#a78bfa;
+    --bg:#121010; --card:#1d1a18; --ink:#f5f2ef; --muted:#a29a94; --line:#2e2925;
+    --accent:#ff8a1f; --accent-soft:#2d2116;
+    --lec:#60a5fa; --sem:#2dd4bf; --prac:#a78bfa; --exam:#f87171; --other:#a8a29e;
     --warn-bg:#2b2112; --warn:#fbbf24; --bad-bg:#2c1416; --bad:#f87171; --ok:#4ade80;
     --shadow:none;
   }
@@ -66,7 +66,7 @@ input:focus,select:focus{outline:2px solid var(--accent);outline-offset:-1px}
 .hero p{color:var(--muted);margin:12px 0 26px}
 .err{color:var(--bad);font-size:13px;margin-top:10px}
 
-.next{background:linear-gradient(135deg,var(--accent),#7c3aed);color:#fff;border-radius:18px;padding:20px 22px;margin-bottom:18px;box-shadow:var(--shadow)}
+.next{background:linear-gradient(135deg,#ff8a1f,#ff5a00);color:#fff;border-radius:18px;padding:20px 22px;margin-bottom:18px;box-shadow:var(--shadow)}
 .next .lbl{font-size:12px;text-transform:uppercase;letter-spacing:.08em;opacity:.8;font-weight:700}
 .next .t{font-size:20px;font-weight:800;margin:6px 0 4px}
 .next .m{font-size:14px;opacity:.9}
@@ -787,8 +787,9 @@ async function showNotify(){
 function widgetPayload(){
   const today = todayStr(), lim = addDays(today, 10);
   const room = e => e.online ? 'онлайн' : (e.loc || '').includes(',') ? 'ауд. ' + e.loc.split(',').pop().trim() : (e.loc || '');
-  const ev = events.filter(e => !e.cancelled && ymd(e.start) >= today && ymd(e.start) <= lim).slice(0, 60)
+  const toW = list => list.filter(e => !e.cancelled && ymd(e.start) >= today && ymd(e.start) <= lim).slice(0, 60)
     .map(e => ({ s: e.start + '+03:00', e: e.end + '+03:00', n: shortName(e.name), t: e.type, l: room(e), k: fk(e.type) || '' }));
+  const ev = toW(events);
   const dl = [];
   for (const h of allHw()) if (!h.done && h.due >= today) dl.push({ d: h.due, t: h.text, sub: shortName(h.subject), k: isExamHw(h) ? 'exam' : isKrHw(h) ? 'kr' : 'hw' });
   for (const e of events) {
@@ -797,7 +798,10 @@ function widgetPayload(){
       dl.push({ d: e.start + '+03:00', t: k === 're' ? 'Пересдача' : /экзам/i.test(e.type) ? 'Экзамен' : k === 'zach' ? 'Зачёт' : 'КР', sub: shortName(e.name), k });
   }
   dl.sort((a, b) => a.d.localeCompare(b.d));
-  return { name: profile.group.name, events: ev, deadlines: dl.slice(0, 10) };
+  const out = { name: profile.group.name, events: ev, deadlines: dl.slice(0, 10) };
+  // пары партнёра для виджета «вместе» (если совместный режим связан и его расписание загружено)
+  if (profile.partner && partnerProfile && !partnerErr && partnerEvents.length) out.partner = { name: partnerName(), events: toW(partnerEvents) };
+  return out;
 }
 async function syncWidget(){
   const tok = profile.widgetToken;
@@ -837,6 +841,12 @@ async function showWidget(){
         <li>Выбери размер (маленький, средний или большой) → <b>Добавить виджет</b>.</li>
         <li>Нажми на появившийся виджет → в поле <b>Script</b> выбери <b>Мои пары</b>.</li>
         <li>Для экрана блокировки: долгое нажатие на экран блокировки → <b>Настроить</b> → поле виджетов → Scriptable → так же выбери скрипт.</li>
+      </ol></section>
+    <section class="panel"><h2>Виджет «Мы» — пары вдвоём</h2>
+      <p class="sm">Мои пары и пары партнёра рядом, полоска дня и когда вы оба свободны. Нужен связанный «Совместный режим».</p>
+      <ol class="sm steps">
+        <li>Добавь ещё один виджет Scriptable (лучше большой) и выбери скрипт <b>Мои пары</b>.</li>
+        <li>В том же окне в поле <b>Parameter</b> напиши <b>вместе</b>.</li>
       </ol></section>
     <section class="panel"><h2>Отключить</h2><p class="sm">Секретная ссылка перестанет работать, виджет покажет последние сохранённые данные.</p>
       <button class="danger" id="wOff">Отключить виджет</button></section>`}`;
@@ -887,7 +897,7 @@ function recalcPartner(){
   if (partnerAll && partnerProfile) partnerEvents = filterMine(partnerAll, analyze(partnerAll), partnerProfile);
   refreshPartnerViews();
 }
-function refreshPartnerViews(){ if (view === 'main') { renderBar(); if (filter === 'together') renderList(); } if (view === 'partner') showPartner(); }
+function refreshPartnerViews(){ if (view === 'main') { renderBar(); if (filter === 'together') renderList(); syncWidget(); } if (view === 'partner') showPartner(); }
 const partnerName = () => (partnerProfile && partnerProfile.name ? partnerProfile.name.split(' ')[0] : 'Партнёр');
 
 function showPartner(){
