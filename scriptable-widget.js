@@ -68,7 +68,7 @@ const show = cur || next;
 const todayRest = evs.filter(e => dayDiff(e.S, now) === 0 && e !== show);
 const dls = ((data && data.deadlines) || []).map(d => ({ ...d, D: new Date(d.d.length === 10 ? d.d + 'T12:00:00+03:00' : d.d) }))
   .filter(d => d.d.length === 10 ? dayDiff(d.D, now) >= 0 : d.D > now);
-const stale = data && data.updated && (now - new Date(data.updated)) > 3 * 864e5;
+const stale = data && data.updated && (now - new Date(data.updated)) > 2 * 864e5;
 
 const w = new ListWidget();
 w.url = SITE;
@@ -158,7 +158,7 @@ if (fam.startsWith('accessory')) {
     else txt(w, 'Ничего не горит 🎉', 12, '', C.dim);
     w.addSpacer();
   }
-  if (stale) { w.addSpacer(2); txt(w, 'Давно не обновлялось — открой сайт', 9, '', C.bad, 1); }
+  if (stale) { w.addSpacer(2); txt(w, 'Данные давно не обновлялись', 9, '', C.bad, 1); }
 }
 
 if (config.runsInWidget) Script.setWidget(w);

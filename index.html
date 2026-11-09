@@ -142,6 +142,28 @@ input:focus,select:focus{outline:2px solid var(--accent);outline-offset:-1px}
 .pband.gap{background:var(--bg);color:var(--muted);border:1px dashed var(--line)}
 .pband + .week{margin-top:10px}
 .day.hol .c{color:var(--ok)}
+.search{margin-bottom:10px}
+.search input{width:100%;font-size:15px;padding:11px 14px;border-radius:12px;background:var(--card)}
+.sres{font-size:13px;color:var(--muted);margin:4px 0 10px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translate(-50%,150%);z-index:50;display:flex;gap:14px;align-items:center;background:#15171c;color:#fff;padding:10px 12px 10px 16px;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.3);font-size:14px;max-width:calc(100% - 32px);transition:transform .25s}
+#toast.show{transform:translate(-50%,0)}
+#toast span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#toast button{background:#fff;color:#15171c;border:0;font-weight:700;flex:none}
+.gbadge{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:6px;background:var(--accent-soft);color:var(--accent);vertical-align:2px}
+.grades .gmax{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.grades .gmax label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);font-weight:600}
+.grades .gsum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px}
+.grades .gsum>div{background:var(--bg);border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:4px}
+.grades .gsum span{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.grades .gsum b{font-size:16px}
+.grades .gsum .tot{background:var(--accent-soft)}
+.gbar{display:block;height:5px;border-radius:3px;background:var(--line);overflow:hidden}
+.gbar i{display:block;height:100%;background:var(--accent);border-radius:3px}
+.glist{display:grid;gap:2px;margin-bottom:8px}
+.gitem{display:grid;grid-template-columns:1fr auto 50px auto;gap:10px;align-items:center;font-size:13px;padding:4px 0;border-bottom:1px solid var(--line)}
+.gitem b{text-align:right}
+.gadd{display:grid;grid-template-columns:2fr 80px 1fr auto;gap:6px}
+@media (max-width:560px){ .grades .gmax{grid-template-columns:1fr} .gadd{grid-template-columns:1fr 80px} .gadd select,.gadd button{grid-column:auto} }
 .steps{margin:6px 0 0;padding-left:20px;display:grid;gap:6px;font-size:13px;color:var(--ink)}
 .flag.mine{background:var(--accent-soft);color:var(--accent)}
 .absn{color:var(--bad);font-weight:700}
@@ -698,10 +720,10 @@ function computeReminders(){
   if (profile.testPush && Date.parse(profile.testPush.at) > now - 36e5) out.push(profile.testPush);
   return out.sort((a, b) => a.at.localeCompare(b.at));
 }
+// Напоминания теперь целиком считает сервер (send_push.py) — по свежему расписанию СПбГУ, даже если сайт закрыт.
+// Здесь только убираем старый список, который раньше писал сайт.
 function syncReminders(){
-  if (backend.local || !profile.push || !Object.keys(profile.push).length) return;
-  const r = computeReminders();
-  if (JSON.stringify(r) !== JSON.stringify(profile.reminders || [])) backend.update({ reminders: r });
+  if (!backend.local && profile.reminders) backend.update({ reminders: DEL });
 }
 const b64ToU8 = s => { const b = atob((s + '='.repeat((4 - s.length % 4) % 4)).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(b, c => c.charCodeAt(0)); };
 let swReg = null;
@@ -730,7 +752,7 @@ async function showNotify(){
     </section>
     <section class="panel">
       <h2>Ближайшие напоминания</h2>
-      <p class="sm">Приходят ровно за сутки до события: для пар — до начала пары, для ДЗ — до первой пары по предмету в день сдачи (или до 9:00, если пары нет). Возможна задержка до 15–20 минут.</p>
+      <p class="sm">Приходят ровно за сутки до события: для пар — до начала пары, для ДЗ — до первой пары по предмету в день сдачи (или до 9:00, если пары нет). Сервер сам следит за расписанием СПбГУ, даже когда сайт закрыт; задержка — до 15–20 минут.</p>
       ${rem.length ? rem.map(r => `<div class="hw"><div class="body"><div class="txt">${esc(r.title)}</div><div class="sm">${esc(r.body)}</div></div><span class="due">${new Date(r.at).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span></div>`).join('') : '<div class="sm">В ближайшие две недели напоминать не о чем.</div>'}
     </section>`;
   $('back').onclick = () => { forced = null; route(); };
@@ -796,7 +818,7 @@ async function showWidget(){
   app.innerHTML = `
     <header><div><h1>Виджет для iPhone</h1><div class="sub">следующая пара и дедлайны на экране «Домой» и экране блокировки</div></div><button id="back">Готово</button></header>
     ${!tok ? `<section class="panel"><h2>Как это работает</h2>
-      <p class="sm">Виджет делается через бесплатное приложение <b>Scriptable</b> из App Store. Сайт будет сохранять короткую сводку (пары на 10 дней и дедлайны) по секретной ссылке, а виджет — забирать её раз в 15 минут. Сводка обновляется, когда ты открываешь сайт.</p>
+      <p class="sm">Виджет делается через бесплатное приложение <b>Scriptable</b> из App Store. Сайт будет сохранять короткую сводку (пары на 10 дней и дедлайны) по секретной ссылке, а виджет — забирать её раз в 15 минут. Сводку обновляет сервер по свежему расписанию СПбГУ, даже если сайт не открывать.</p>
       <button class="primary big" id="wOn" style="margin-top:10px">Создать виджет</button></section>`
     : `<section class="panel"><h2>1. Скопируй скрипт</h2>
       <p class="sm">Делай это на iPhone — так скрипт сразу окажется в буфере обмена.</p>
@@ -1136,7 +1158,7 @@ function showChoices(){
 // ================= Главный экран =================
 function showMain(){
   if (view !== 'main' || !$('list')) buildMain();
-  renderBanner(); renderHw(); renderNext(); renderStats(); renderYear(); renderSummary(); renderBar(); fillLessonSubjects(); renderList();
+  renderBanner(); renderHw(); renderNext(); renderStats(); renderYear(); renderSummary(); renderBar(); fillLessonSubjects(); fillSearchHints(); renderList();
 }
 function buildMain(){
   view = 'main';
@@ -1196,6 +1218,7 @@ function buildMain(){
       <button class="primary" type="submit">Добавить в расписание</button>
     </form>
   </details>
+  <div class="search"><input id="q" type="search" placeholder="Поиск по расписанию: предмет, преподаватель, аудитория, тип…" list="qlist" autocomplete="off"><datalist id="qlist"></datalist></div>
   <div class="bar" id="bar"></div>
   <div id="list"></div>
   <footer>Данные: <a href="https://timetable.spbu.ru/StudentGroupEvents/Primary/${esc(profile.group.id)}" target="_blank" rel="noopener">timetable.spbu.ru</a> · обновляются при открытии и каждые 30 минут · «⋯» у пары — своя пометка (онлайн, отмена, заметка, пропуск)</footer>`;
@@ -1215,6 +1238,8 @@ function buildMain(){
     filter = b.dataset.f; renderBar(); renderList();
     if (filter === 'all') document.getElementById('today')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
+  let qTimer;
+  $('q').oninput = () => { clearTimeout(qTimer); qTimer = setTimeout(() => { searchQ = $('q').value.trim(); renderList(); }, 200); };
   const lf = $('lessonForm');
   lf.subj.onchange = () => {
     $('lfOtherWrap').hidden = lf.subj.value !== '__other';
@@ -1354,8 +1379,42 @@ function renderStats(){
 
 // ---- Сводка по предметам ----
 const openSubj = new Set();   // какие предметы в сводке раскрыты
+
+// ---- Баллы по предмету: profile.grades[ключ предмета] = { maxSem, maxExam, items: { id: { t, p, k: 'sem'|'exam', c } } } ----
+const fmtPts = n => (Math.round(n * 10) / 10).toString().replace('.', ',');
+function gradeSum(gk){
+  const g = (profile.grades || {})[gk] || {}, items = Object.values(g.items || {});
+  const sem = items.filter(i => i.k !== 'exam').reduce((a, i) => a + (+i.p || 0), 0);
+  const exam = items.filter(i => i.k === 'exam').reduce((a, i) => a + (+i.p || 0), 0);
+  const maxSem = +g.maxSem || 0, maxExam = +g.maxExam || 0;
+  return { sem, exam, total: sem + exam, maxSem, maxExam, max: maxSem + maxExam, any: items.length > 0 || maxSem + maxExam > 0, items: Object.entries(g.items || {}) };
+}
+function gradesBlock(gk){
+  const s = gradeSum(gk);
+  const bar = (v, m) => m ? `<span class="gbar"><i style="width:${Math.min(100, v / m * 100)}%"></i></span>` : '';
+  const items = s.items.sort((a, b) => (a[1].c || 0) - (b[1].c || 0));
+  return `<div class="snote grades">
+    <div class="lbl">Баллы</div>
+    <div class="gmax">
+      <label>Макс. за семинары / текущую работу <input type="text" inputmode="decimal" data-gmax="maxSem" data-gk="${gk}" value="${s.maxSem ? fmtPts(s.maxSem) : ''}" placeholder="напр. 60"></label>
+      <label>Макс. за экзамен / зачёт <input type="text" inputmode="decimal" data-gmax="maxExam" data-gk="${gk}" value="${s.maxExam ? fmtPts(s.maxExam) : ''}" placeholder="напр. 40"></label>
+    </div>
+    <div class="gsum">
+      <div><span>Семинары</span><b>${fmtPts(s.sem)}${s.maxSem ? ' / ' + fmtPts(s.maxSem) : ''}</b>${bar(s.sem, s.maxSem)}</div>
+      <div><span>Экзамен</span><b>${fmtPts(s.exam)}${s.maxExam ? ' / ' + fmtPts(s.maxExam) : ''}</b>${bar(s.exam, s.maxExam)}</div>
+      <div class="tot"><span>Итого</span><b>${fmtPts(s.total)}${s.max ? ' / ' + fmtPts(s.max) : ''}</b>${bar(s.total, s.max)}</div>
+    </div>
+    ${items.length ? `<div class="glist">${items.map(([id, i]) => `<div class="gitem"><span>${esc(i.t || 'Без названия')}</span><span class="sm">${i.k === 'exam' ? 'экзамен' : 'семинары'}</span><b>${fmtPts(+i.p || 0)}</b><button class="x" data-gdel="${id}" data-gk="${gk}" title="Удалить">×</button></div>`).join('')}</div>` : ''}
+    <div class="gadd" data-gk="${gk}">
+      <input data-gf="t" placeholder="За что: доклад, КР 1, семинар 12.11…">
+      <input data-gf="p" type="text" inputmode="decimal" placeholder="Баллы">
+      <select data-gf="k"><option value="sem">семинары</option><option value="exam">экзамен</option></select>
+      <button class="primary" data-gadd="${gk}">Добавить</button>
+    </div>
+  </div>`;
+}
 function renderSummary(){
-  if (document.activeElement && document.activeElement.matches('#sumList textarea')) return;   // не мешаем печатать заметку
+  if (document.activeElement && document.activeElement.matches('#sumList textarea, #sumList input, #sumList select')) return;   // не мешаем печатать
   const now = new Date(), map = new Map();
   for (const e of events){
     if (!map.has(e.name)) map.set(e.name, { name: e.name, days: new Set(), pairs: 0, next: null, ctrl: [], rest: [], past: 0, abs: 0 });
@@ -1385,11 +1444,12 @@ function renderSummary(){
           <span>${hm(e.start)}–${hm(e.end)} · <b class="stype">${esc(e.type)}</b>${e.online ? ' · онлайн' : e.loc ? ' · ' + esc(e.loc.replace(/^.*?,\s*(?=[^,]*$)/, 'ауд. ')) : ''}${e.ov && e.ov.note ? ' · 📝 ' + esc(e.ov.note) : ''}</span></div>`;
       }).join('')}</div>` : '<div class="slist sm">Больше занятий нет</div>';
       const nk = hash(s.name);
-      list = `<div class="snote"><div class="lbl">Заметки по предмету</div>
-        <textarea data-note="${nk}" rows="3" placeholder="Почта преподавателя, ссылка на чат, критерии оценки, баллы…">${esc((profile.notes || {})[nk] || '')}</textarea></div>` + list;
+      list = gradesBlock(nk) + `<div class="snote"><div class="lbl">Заметки по предмету</div>
+        <textarea data-note="${nk}" rows="3" placeholder="Почта преподавателя, ссылка на чат, критерии оценки…">${esc((profile.notes || {})[nk] || '')}</textarea></div>` + list;
     }
     const absTxt = s.past ? ` · пропусков ${s.abs} из ${s.past}` : '';
-    const noteMark = (profile.notes || {})[hash(s.name)] ? ' 📝' : '';
+    const gs = gradeSum(hash(s.name));
+    const noteMark = ((profile.notes || {})[hash(s.name)] ? ' 📝' : '') + (gs.any ? ` <span class="gbadge">${fmtPts(gs.total)}${gs.max ? ' / ' + fmtPts(gs.max) : ''}</span>` : '');
     return `<div class="srow${n || s.rest.length ? '' : ' done'}${open ? ' open' : ''}" data-subj="${esc(s.name)}"><div class="sn">${esc(s.name.replace(/ - продвинутый уровень/, ''))}${noteMark} <span class="arr">${open ? '▴' : '▾'}</span></div>
       <div class="big">${n}<small>${plural(n,'день','дня','дней').replace(/^\d+ /, '')}</small></div>
       <div class="sd">${sub}<span class="${s.abs ? 'absn' : ''}">${absTxt}</span>${ctrl ? '<br>' + ctrl : ''}</div>${list}</div>`;
@@ -1418,6 +1478,34 @@ function renderYear(){
 }
 
 // ---- Список дней ----
+// ---- Поиск по расписанию всего семестра ----
+function renderSearch(){
+  const words = searchQ.toLowerCase().replace(/ё/g, 'е').split(/\s+/).filter(Boolean);
+  const now = new Date(), today = todayStr();
+  const found = events.filter(e => { const h = searchHay(e); return words.every(w => h.includes(w)); });
+  if (!found.length) { $('list').innerHTML = `<div class="empty">По запросу «${esc(searchQ)}» ничего не нашлось</div>`; return; }
+  const ahead = found.filter(e => dt(e.end) >= now && !e.cancelled).length;
+  const byDay = new Map(); found.forEach(e => { const k = ymd(e.start); if (!byDay.has(k)) byDay.set(k, []); byDay.get(k).push(e); });
+  let html = `<div class="sres">Найдено ${pluralPair(found.length)} · впереди ${ahead} <button class="muted-link" id="qClear">сбросить поиск</button></div>`;
+  let firstUpcoming = true;
+  for (const [day, evs] of byDay) {
+    const isFuture = day >= today;
+    html += `<section class="day${day === today ? ' today' : ''}"${isFuture && firstUpcoming ? ' id="qnow"' : ''}><div class="dh"><span class="d">${esc(fmtDay(day))}${day === today ? '<span class="tag-today">сегодня</span>' : ''}</span><span class="c">${pluralPair(evs.length)}</span></div>`;
+    if (isFuture) firstUpcoming = false;
+    for (const e of evs) {
+      const past = dt(e.end) < now;
+      html += `<div class="ev${past ? ' past' : ''}${e.cancelled ? ' cancel' : ''}" style="--k:${kindOf(e.type)}">
+        <div class="tm">${hm(e.start)}<small>${hm(e.end)}</small></div>
+        <div><div class="nm">${esc(e.name)}<span class="kind">${esc(e.type)}</span></div>
+          <div class="meta">${e.online ? '<span class="online">Онлайн</span>' : esc(e.loc)}${e.teacher ? ' · ' + esc(e.teacher) : ''}</div>
+          ${(profile.absent || {})[e.ok] ? '<div class="flags"><span class="flag bad">Пропуск</span></div>' : ''}</div><span></span></div>`;
+    }
+    html += '</section>';
+  }
+  $('list').innerHTML = html;
+  $('qClear').onclick = () => { $('q').value = ''; searchQ = ''; renderList(); };
+}
+
 // ---- Вкладка «Вместе»: два расписания рядом и общие свободные окна ----
 function renderTogether(){
   const pn = partnerName();
@@ -1450,7 +1538,17 @@ function renderTogether(){
   $('list').innerHTML = `<div class="sm" style="margin:0 0 10px">Ближайшие 3 недели. Окна — время с 9:00 до 21:00, когда пар нет у обоих (от часа).</div>` + html;
 }
 
+let searchQ = '';
+const searchHay = e => [e.name, e.type, e.teacher, e.loc, e.online ? 'онлайн' : '', e.ov && e.ov.note, fmtDay(e.start)].join(' ').toLowerCase().replace(/ё/g, 'е');
+function fillSearchHints(){
+  const dl = $('qlist'); if (!dl) return;
+  const teachers = new Set(); events.forEach(e => (e.teacher || '').split(/,\s*/).forEach(t => t && teachers.add(t)));
+  const vals = [...teachers].sort((a, b) => a.localeCompare(b, 'ru')).concat([...new Set(events.map(e => shortName(e.name)))].sort((a, b) => a.localeCompare(b, 'ru')));
+  dl.innerHTML = vals.map(v => `<option value="${esc(v)}">`).join('');
+}
+
 function renderList(){
+  if (searchQ) return renderSearch();
   if (filter === 'together') return renderTogether();
   const now = new Date(), today = todayStr(), hw = allHw();
   const mon = mondayOf(today), sun = addDays(mon, 6);
@@ -1522,6 +1620,17 @@ function renderList(){
   $('list').innerHTML = html;
 }
 
+// ---- Всплывающее сообщение с кнопкой «Вернуть» ----
+let toastTimer = null;
+function toast(msg, undo){
+  let t = $('toast');
+  if (!t) { t = document.createElement('div'); t.id = 'toast'; document.body.appendChild(t); }
+  t.innerHTML = `<span>${esc(msg)}</span>${undo ? '<button id="toastUndo">Вернуть</button>' : ''}`;
+  t.className = 'show';
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.className = ''; }, 7000);
+  if (undo) $('toastUndo').onclick = async () => { t.className = ''; clearTimeout(toastTimer); await undo(); };
+}
+
 // ================= Общие обработчики =================
 document.addEventListener('click', async e => {
   if ($('menu') && !$('menu').hidden && !e.target.closest('#menu')) $('menu').hidden = true;
@@ -1533,23 +1642,41 @@ document.addEventListener('click', async e => {
   }
   const he = e.target.closest('[data-hwedit],[data-hwcancel]');
   if (he) { editingHw = he.dataset.hwedit || null; renderHw(); return; }
-  const t = e.target.closest('[data-del],[data-ov],[data-ovsave],[data-ovclear],[data-mdel],[data-mdelall]');
-  if (!t) return;
-  if (t.dataset.mdel || t.dataset.mdelall) {   // удаление своего занятия: второе нажатие подтверждает
-    if (!t.classList.contains('arm')) { t.classList.add('arm'); t.dataset.txt = t.textContent; t.textContent = 'Точно удалить?'; setTimeout(() => { t.classList.remove('arm'); t.textContent = t.dataset.txt; }, 3000); return; }
-    editingOv = null;
-    if (t.dataset.mdelall || !t.dataset.mrep) await backend.update({ ['mine.' + (t.dataset.mdelall || t.dataset.mdel)]: DEL });
-    else await backend.update({ ['mine.' + t.dataset.mdel + '.skip.' + t.dataset.mdate]: true });
+  const gb = e.target.closest('[data-gadd],[data-gdel]');
+  if (gb) {                          // баллы: добавить / удалить запись
+    const gk = gb.dataset.gk || gb.dataset.gadd;
+    if (gb.dataset.gadd) {
+      const box = gb.closest('.gadd'), t = box.querySelector('[data-gf=t]'), p = box.querySelector('[data-gf=p]'), k = box.querySelector('[data-gf=k]');
+      const pts = parseFloat(String(p.value).replace(',', '.'));
+      if (isNaN(pts)) { p.focus(); return; }
+      gb.blur();
+      await backend.update({ ['grades.' + gk + '.items.g' + Date.now().toString(36)]: { t: t.value.trim(), p: pts, k: k.value, c: Date.now() } });
+    } else {
+      const id = gb.dataset.gdel, saved = structuredClone(((profile.grades || {})[gk] || {}).items[id]);
+      await backend.update({ ['grades.' + gk + '.items.' + id]: DEL });
+      toast(`Запись «${saved.t || saved.p}» удалена`, () => backend.update({ ['grades.' + gk + '.items.' + id]: saved }));
+    }
     return;
   }
-  if (t.dataset.del) {               // удаление ДЗ: «×» → «Удалить?» → удалить
-    if (!t.classList.contains('arm')) {
-      document.querySelectorAll('.x.arm').forEach(b => { b.classList.remove('arm'); b.textContent = '×'; });
-      t.classList.add('arm'); t.textContent = 'Удалить?';
-      setTimeout(() => { t.classList.remove('arm'); t.textContent = '×'; }, 3000);
-      return;
+  const t = e.target.closest('[data-del],[data-ov],[data-ovsave],[data-ovclear],[data-mdel],[data-mdelall]');
+  if (!t) return;
+  if (t.dataset.mdel || t.dataset.mdelall) {   // удаление своего занятия — сразу, с кнопкой «Вернуть»
+    editingOv = null;
+    if (t.dataset.mdelall || !t.dataset.mrep) {
+      const id = t.dataset.mdelall || t.dataset.mdel, saved = structuredClone((profile.mine || {})[id]);
+      await backend.update({ ['mine.' + id]: DEL });
+      toast(`Занятие «${saved.name}» удалено`, () => backend.update({ ['mine.' + id]: saved }));
+    } else {
+      const id = t.dataset.mdel, d = t.dataset.mdate;
+      await backend.update({ ['mine.' + id + '.skip.' + d]: true });
+      toast(`Занятие ${fmtShort(d)} удалено`, () => backend.update({ ['mine.' + id + '.skip.' + d]: DEL }));
     }
-    await backend.update({ ['hw.' + t.dataset.del]: DEL });
+    return;
+  }
+  if (t.dataset.del) {               // удаление ДЗ — сразу, с кнопкой «Вернуть»
+    const id = t.dataset.del, saved = structuredClone((profile.hw || {})[id]);
+    await backend.update({ ['hw.' + id]: DEL });
+    toast(`Задание «${saved.text}» удалено`, () => backend.update({ ['hw.' + id]: saved }));
   } else if (t.dataset.ov) {
     editingOv = editingOv === t.dataset.ov ? null : t.dataset.ov; renderList();
   } else if (t.dataset.ovsave) {
@@ -1575,6 +1702,8 @@ document.addEventListener('submit', async e => {   // сохранение от�
 document.addEventListener('change', e => {
   const id = e.target.dataset && e.target.dataset.hw;
   if (id) backend.update({ ['hw.' + id + '.done']: e.target.checked });
+  const gm = e.target.dataset && e.target.dataset.gmax;    // максимум баллов за семинары / экзамен
+  if (gm) { const v = parseFloat(String(e.target.value).replace(',', '.')); backend.update({ ['grades.' + e.target.dataset.gk + '.' + gm]: isNaN(v) ? DEL : v }); }
   const nk = e.target.dataset && e.target.dataset.note;   // заметка к предмету сохраняется, когда уходишь из поля
   if (nk) { const v = e.target.value.trim(); backend.update({ ['notes.' + nk]: v ? v : DEL }); }
 });
