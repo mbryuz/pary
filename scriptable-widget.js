@@ -203,17 +203,51 @@ function freeWindows(a, b) {
   return out;
 }
 const fmtMin = m => pad(Math.floor(m / 60)) + ':' + pad(m % 60);
-function timeline(a, b, wins, W) {
-  const H = 44, dc = new DrawContext();
+// Шкала дня 9:00–21:00: две дорожки (мои пары — оранжевые, партнёра — серые), общее свободное время — зелёным,
+// линия «сейчас» — красная (только если показываем сегодня). names — подписи дорожек слева, ticks — часы снизу.
+function timeline(a, b, wins, W, opt = {}) {
+  const NAME = opt.names ? 46 : 0, LANE = opt.lane || 16, GAP = 6, TOP = opt.showNow ? 6 : 0;
+  const TICK = opt.ticks ? 13 : 0;
+  const H = TOP + LANE * 2 + GAP + TICK + 2;
+  const dc = new DrawContext();
   dc.size = new Size(W, H); dc.opaque = false; dc.respectScreenScale = true;
-  const x = m => (m - 540) / 720 * W;
+  const X0 = NAME, BW = W - NAME;
+  const x = m => X0 + (Math.min(1260, Math.max(540, m)) - 540) / 720 * BW;
   const mins = d => d.getHours() * 60 + d.getMinutes();
-  const rr = (X, Y, w2, h, r, color) => { const p = new Path(); p.addRoundedRect(new Rect(X, Y, Math.max(w2, 2), h), r, r); dc.addPath(p); dc.setFillColor(color); dc.fillPath(); };
-  rr(0, 0, W, H, 10, new Color('#8a8580', 0.14));
-  wins.forEach(([s, e]) => rr(x(s), 0, x(e) - x(s), H, 6, new Color('#22c55e', 0.22)));
-  a.forEach(e => rr(x(Math.max(540, mins(e.S))), 5, x(Math.min(1260, mins(e.E))) - x(Math.max(540, mins(e.S))) - 3, 16, 5, new Color('#ff7a00')));
-  b.forEach(e => rr(x(Math.max(540, mins(e.S))), 23, x(Math.min(1260, mins(e.E))) - x(Math.max(540, mins(e.S))) - 3, 16, 5, new Color('#a8a29e')));
-  return dc.getImage();
+  const rr = (X, Y, w2, h, r, color, stroke) => {
+    const p = new Path(); p.addRoundedRect(new Rect(X, Y, Math.max(w2, 2), h), r, r); dc.addPath(p);
+    if (stroke) { dc.setStrokeColor(stroke); dc.setLineWidth(1.5); dc.strokePath(); } else { dc.setFillColor(color); dc.fillPath(); }
+  };
+  const label = (s, X, Y, w2, h, color, size, bold, align) => {
+    dc.setFont(bold ? Font.boldSystemFont(size) : Font.systemFont(size)); dc.setTextColor(color);
+    if (align === 'c') dc.setTextAlignedCenter(); else if (align === 'r') dc.setTextAlignedRight(); else dc.setTextAlignedLeft();
+    dc.drawTextInRect(s, new Rect(X, Y, w2, h));
+  };
+  const abbr = n => (n.split(/[\s.,-]+/)[0] || '').slice(0, 4).toLowerCase();
+  const y1 = TOP, y2 = TOP + LANE + GAP;
+  [y1, y2].forEach(y => rr(X0, y, BW, LANE, 6, new Color('#8a8580', 0.16)));
+  if (opt.names) { label(opt.names[0], 0, y1 + LANE / 2 - 7, NAME - 4, 14, new Color('#8a8580'), 10, true); label(opt.names[1], 0, y2 + LANE / 2 - 7, NAME - 4, 14, new Color('#8a8580'), 10, true); }
+  wins.forEach(([s, e]) => [y1, y2].forEach(y => { rr(x(s), y, x(e) - x(s), LANE, 6, new Color('#22c55e', 0.16)); rr(x(s) + 0.75, y + 0.75, x(e) - x(s) - 1.5, LANE - 1.5, 6, null, new Color('#22c55e', 0.9)); }));
+  const bars = (list, y, color) => list.forEach(e => {
+    const s = x(mins(e.S)), w2 = x(mins(e.E)) - s - 2;
+    rr(s, y, w2, LANE, 5, color);
+    if (opt.abbr && w2 >= 20) label(abbr(e.n), s, y + LANE / 2 - 6, w2, 12, Color.white(), 8.5, true, 'c');
+  });
+  bars(a, y1, new Color('#ff7a00')); bars(b, y2, new Color('#a8a29e'));
+  if (opt.ticks) ['9', '12', '15', '18', '21'].forEach((t, i) => {
+    const tx = X0 + i / 4 * BW;
+    label(t, i === 0 ? tx : i === 4 ? tx - 20 : tx - 10, y2 + LANE + 2, 20, 11, new Color('#8a8580'), 8.5, false, i === 0 ? 'l' : i === 4 ? 'r' : 'c');
+  });
+  if (opt.showNow) {   // линия текущего времени
+    const m = mins(new Date());
+    if (m >= 540 && m <= 1260) {
+      const nx = x(m);
+      dc.setFillColor(new Color('#ff3b30'));
+      dc.fillRect(new Rect(nx - 0.75, TOP - 2, 1.5, LANE * 2 + GAP + 4));
+      dc.fillEllipse(new Rect(nx - 3, TOP - 5, 6, 6));
+    }
+  }
+  return { img: dc.getImage(), H };
 }
 function togetherWidget() {
   if (!partner) {
@@ -226,6 +260,32 @@ function togetherWidget() {
   const wins = freeWindows(A, B);
   const pn = partner.name;
   const isToday = dayDiff(day, now) === 0;
+
+  if (fam === 'medium') {           // вариант Б: шкала дня, как виджет календаря
+    const row = w.addStack(); row.layoutHorizontally();
+    const left = row.addStack(); left.layoutVertically(); left.size = new Size(48, 0);
+    txt(left, WD[day.getDay()], 13, 'm', C.or);
+    txt(left, String(day.getDate()), 32, '', C.txt, 1);
+    txt(left, isToday ? 'Мы' : 'завтра', 11, '', C.dim, 1);
+    left.addSpacer();
+    row.addSpacer(6);
+    const right = row.addStack(); right.layoutVertically();
+    const nA = A.find(e => e.E > now), nB = B.find(e => e.E > now);
+    const line = right.addStack(); line.layoutHorizontally(); line.centerAlignContent();
+    txt(line, 'Я ', 11.5, 'b', C.or);
+    txt(line, nA ? `${hm(nA.S)} ${shortN(nA.n).split(' ')[0]}` : 'свободен', 11.5, '', nA ? C.txt : C.ok, 1);
+    txt(line, '  ·  ', 11.5, '', C.dim);
+    txt(line, pn + ' ', 11.5, 'b', C.dim, 1);
+    txt(line, nB ? `${hm(nB.S)} ${shortN(nB.n).split(' ')[0]}` : 'свободна', 11.5, '', nB ? C.txt : C.ok, 1);
+    right.addSpacer(6);
+    const t = timeline(A, B, wins, 262, { names: ['Я', pn], ticks: true, abbr: true, lane: 20, showNow: isToday });
+    const im = right.addImage(t.img); im.imageSize = new Size(262, t.H);
+    right.addSpacer();
+    const win = right.addStack(); win.backgroundColor = C.okbg; win.cornerRadius = 9; win.setPadding(4, 8, 4, 8);
+    txt(win, wins.length ? '💞 Оба свободны ' + wins.map(([s, e]) => `${fmtMin(s)}–${fmtMin(e)}`).join(', ') : 'Общих свободных окон днём нет', 11.5, 'b', C.ok, 1);
+    win.addSpacer();
+    return;
+  }
 
   const head = w.addStack(); head.layoutHorizontally(); head.bottomAlignContent();
   txt(head, (fam === 'large' ? WDL : WD)[day.getDay()], 13, 'm', C.or); head.addSpacer(6);
@@ -254,9 +314,8 @@ function togetherWidget() {
   if (fam === 'large') {
     w.addSpacer();
     label(w, 'День'); w.addSpacer(4);
-    const img = w.addImage(timeline(A, B, wins, 300)); img.imageSize = new Size(300, 44);
-    const ticks = w.addStack(); ticks.layoutHorizontally(); ticks.size = new Size(300, 0);
-    ['9', '12', '15', '18', '21'].forEach((t, i) => { if (i) ticks.addSpacer(); txt(ticks, t, 9, '', C.dim); });
+    const t = timeline(A, B, wins, 300, { ticks: true, abbr: true, lane: 18, showNow: isToday });
+    const img = w.addImage(t.img); img.imageSize = new Size(300, t.H);
     w.addSpacer(8);
   } else w.addSpacer();
   const win = w.addStack(); win.backgroundColor = C.okbg; win.cornerRadius = 10; win.setPadding(5, 9, 5, 9);
